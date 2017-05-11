@@ -92,12 +92,13 @@ class ERPNextClient:
         return self._post("resource/{0}".format(resource_type_name),
                           encapsulated_data)
 
-    def create_sales_order(self, customer, items, order_type="Sales", date=None):
+    def create_sales_order(self, customer, items, title=None, order_type="Sales", date=None):
         if date is None:
             date = "2017-05-10"
 
         return self.create_resource("Sales Order",
                                     data={'customer': customer,
+                                          'title': title,
                                           'order_type': order_type,
                                           'items': items})
 

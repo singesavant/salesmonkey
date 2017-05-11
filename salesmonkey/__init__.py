@@ -20,7 +20,8 @@ ma = Marshmallow(app)
 
 Session(app)
 
-cors = CORS(app)
+cors = CORS(app, resources={r"/*": {"origins": "*"}},
+            supports_credentials=True)
 
 from .rest import api_v1, specs as api_specs
 from . import preorders

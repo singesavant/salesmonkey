@@ -1,3 +1,6 @@
+import requests
+from werkzeug.exceptions import NotFound, BadRequest
+
 from flask_apispec import (
     FlaskApiSpec,
     marshal_with,
@@ -8,7 +11,7 @@ from ..schemas import (
     ERPItemSchema, ERPSalesOrderSchema,
     ERPSalesOrderItemSchema,
     CartSchema,
-    CartItemSchema
+    CartLineSchema
 )
 
 from ..erpnext import erp_client
@@ -17,15 +20,34 @@ from ..erpnext import (
     ERPSalesOrder
 )
 
-from ..schemas import Cart
+from ..schemas import Cart, Item
 from ..rest import api_v1
+from ..utils import OrderNumberGenerator
+
 
 @marshal_with(CartSchema)
-class PreorderCart(MethodResource):
+class PreorderCartDetail(MethodResource):
     def get(self, **kwargs):
         return Cart.from_session()
 
-api_v1.register('/preorders/cart/', PreorderCart)
+    def post(self):
+        cart = Cart.from_session()
+        if cart.count() <= 0:
+            raise BadRequest("Empty cart")
+
+        items = [{'item_code': line.product.code, 'qty': line.quantity} for line in cart]
+
+        # Place SO
+        num_gen = OrderNumberGenerator()
+        so = erp_client.create_sales_order(customer="Guillaume Libersat",
+                                           order_type="Shopping Cart",
+                                           title="Préco {0}".format(num_gen.generate(cart)),
+                                           items=items)
+
+        # Empty Cart once SO has been placed
+        cart.clear()
+
+api_v1.register('/preorders/cart/', PreorderCartDetail)
 
 
 @marshal_with(ERPItemSchema(many=True))
@@ -38,41 +60,54 @@ class ItemList(MethodResource):
 
 api_v1.register('/preorders/items/', ItemList)
 
+
 @marshal_with(ERPItemSchema)
-class Item(MethodResource):
+class ItemDetail(MethodResource):
     def get(self, name):
         item = erp_client.query(ERPItem).get(name)
 
         return item.json()['data']
 
-api_v1.register('/preorders/items/<name>', Item)
+    def post(self, name):
+        try:
+            item = erp_client.query(ERPItem).get(name)
+        except requests.exceptions.HTTPError:
+            raise NotFound
+
+        # FIXME: Make sure it has "website" flag
+
+        # Add to cart or update quantity
+        cart = Cart.from_session()
+
+        data = item.json()['data']
+
+        cart.add(Item(data['item_code'], data['item_name']))
+
+        return data
+
+
+api_v1.register('/preorders/items/<name>', ItemDetail)
 
 
 
 @marshal_with(ERPSalesOrderSchema(many=True))
 class UserSalesOrderList(MethodResource):
     def get(self):
-        so = erp_client.query(ERPSalesOrder).list(fields=["name", "title", "customer"],
+        so = erp_client.query(ERPSalesOrder).list(fields=["name", "grand_total", "title", "customer"],
                                                   filters=[
                                                       ["Sales Order", "Customer", "=", "Guillaume Libersat"],
                                                       ["Sales Order", "status", "!=", "Cancelled"]])
 
         return so.json()['data']
 
-    def post(self):
-        x = erp_client.create_sales_order(customer="Guillaume Libersat",
-                                          order_type="Shopping Cart",
-                                          items=[{"item_code": "Hop Shot-75CL",
-                                                  "qty": 0}])
-
 api_v1.register('/preorders/my/', UserSalesOrderList)
 
+
 @marshal_with(ERPSalesOrderSchema)
-class UserSalesOrder(MethodResource):
+class UserSalesOrderDetail(MethodResource):
     def get(self, name):
-        x = erp_client.get_sales_order(name, fields='["name", "title", "customer", "items", "transaction_date"]')
+        so = erp_client.get_sales_order(name, fields='["name", "title", "customer", "items", "transaction_date"]')
 
-        return x.json()['data']
+        return so.json()['data']
 
-api_v1.register('/preorders/my/<name>/', UserSalesOrder)
-
+api_v1.register('/preorders/my/<name>/', UserSalesOrderDetail)

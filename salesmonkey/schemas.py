@@ -31,7 +31,7 @@ class ERPSalesOrderSchema(ERPDocument):
     date = ma.DateTime(attribute="transaction_date")
     title = ma.String(attribute="title")
     customer = ma.String()
-    amount_total = ma.Float(attribute="net_total")
+    amount_total = ma.Float(attribute="grand_total")
     items = ma.Nested(ERPSalesOrderItemSchema, many=True)
 
 class Item(satchless.item.Item):
@@ -39,9 +39,13 @@ class Item(satchless.item.Item):
         self.code = code
         self.name = name
 
-class CartItemSchema(ma.Schema):
-    item_code = ma.String()
-    item_name = ma.String()
+class ItemSchema(ma.Schema):
+    code = ma.String()
+    name = ma.String()
+
+class CartLineSchema(ma.Schema):
+    product = ma.Nested(ItemSchema)
+    quantity = ma.String()
 
 class Cart(satchless.cart.Cart):
     @staticmethod
@@ -52,5 +56,10 @@ class Cart(satchless.cart.Cart):
 
         return session.get('cart')
 
+    @property
+    def items(self):
+        return list(self)
+
 class CartSchema(ma.Schema):
-    items = ma.Nested(CartItemSchema)
+    items = ma.Nested(CartLineSchema,
+                      many=True)
