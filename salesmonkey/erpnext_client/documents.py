@@ -19,24 +19,29 @@ class ERPResource:
 
     def get(self, name, fields=[]):
         try:
-            response = self.client.get_resource(self.doctype, name, fields=[])
+            response = self.client.get_resource(self.doctype, name, fields)
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
                 raise self.DoesNotExist()
             else:
-                reponse.raise_for_status()
+                response.raise_for_status()
 
-        return self.schema().load(data=response.json()['data'])
+        instance, errors = self.schema(strict=True).load(data=response.json()['data'])
 
-    def list(self, fields=[], filters=[]):
+        return instance
+
+    def list(self, erp_fields=[], filters=[], schema_fields=None):
         try:
             response = self.client.list_resource(self.doctype,
-                                                 fields=fields,
+                                                 fields=erp_fields,
                                                  filters=filters)
         except requests.exceptions.HTTPError as e:
-            reponse.raise_for_status()
+            e.response.raise_for_status()
 
-        return self.schema().load(data=response.json()['data'], many=True)
+        instances, errors = self.schema(partial=schema_fields,
+                                        many=True).load(data=response.json()['data'])
+
+        return instances
 
 
 class ERPItem(ERPResource):
