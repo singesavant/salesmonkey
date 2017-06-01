@@ -8,6 +8,12 @@ class ERPDocument(Schema):
     name = fields.String()
 
 
+class ERPUserSchema(ERPDocument):
+    email = fields.Email(load_from="email")
+    first_name = fields.String(load_from="first_name")
+    last_name = fields.String(load_from="last_name")
+
+
 class ERPItemSchema(ERPDocument):
     code = fields.String(load_from="item_code")
     name = fields.String(load_from="item_name")
@@ -18,8 +24,22 @@ class ERPItemSchema(ERPDocument):
 
 
 class ERPCustomerSchema(ERPDocument):
-    pass
+    email = fields.Email(load_from="email")
 
+
+class ERPContactSchema(ERPDocument):
+    email = fields.Email(load_from="email_id")
+    first_name = fields.String(load_from="first_name")
+    last_name = fields.String(load_from="last_name")
+
+
+class ERPDynamicLinkSchema(ERPDocument):
+    """
+    Dynamic Link between two documents
+    """
+    link_name = fields.String(load_from="link_name")
+    parent = fields.String(load_from="parent")
+    parent_type = fields.String(load_from="parenttype")
 
 class ERPSalesOrderItemSchema(ERPDocument):
     item_code = fields.String()

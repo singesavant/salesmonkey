@@ -7,7 +7,7 @@ from .erpnext_client.query import ERPNextClient
 LOGGER = logging.getLogger(__name__)
 
 
-erp_client = ERPNextClient(app.config["ERPNEXT_API_ROOT"],
+erp_client = ERPNextClient(app.config["ERPNEXT_API_HOST"],
                            app.config["ERPNEXT_API_USERNAME"],
                            app.config["ERPNEXT_API_PASSWORD"])
 if not erp_client.login():

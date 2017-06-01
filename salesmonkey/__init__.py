@@ -24,8 +24,16 @@ cors = CORS(app, resources={r"/*": {"origins": "*"}},
             supports_credentials=True)
 
 from .rest import api_v1, specs as api_specs
-from . import preorders
+
+from .auth.manager import login_manager
+
+from . import (
+    auth,
+    preorders
+)
+
 from .erpnext import erp_client
 
 api_specs.init_app(app)
 api_v1.init_app(app)
+login_manager.init_app(app)
