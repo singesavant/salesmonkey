@@ -2,6 +2,7 @@ import requests
 
 from .schemas import (
     ERPItemSchema,
+    ERPItemGroupSchema,
     ERPSalesOrderSchema,
     ERPCustomerSchema,
     ERPUserSchema,
@@ -20,9 +21,9 @@ class ERPResource:
     def __init__(self, aERPNextClient):
         self.client = aERPNextClient
 
-    def get(self, name, fields=[]):
+    def get(self, name, fields=[], filters=[]):
         try:
-            response = self.client.get_resource(self.doctype, name, fields)
+            response = self.client.get_resource(self.doctype, name, fields, filters)
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
                 raise self.DoesNotExist()
@@ -79,14 +80,21 @@ class ERPDynamicLink(ERPResource):
     doctype = "Dynamic Link"
     schema = ERPDynamicLinkSchema
 
+
 class ERPItem(ERPResource):
     doctype = "Item"
     schema = ERPItemSchema
 
 
+class ERPItemGroup(ERPResource):
+    doctype = "Item Group"
+    schema = ERPItemGroupSchema
+
+
 class ERPCustomer(ERPResource):
     doctype = "Customer"
     schema = ERPCustomerSchema
+
 
 class ERPContact(ERPResource):
     doctype = "Contact"

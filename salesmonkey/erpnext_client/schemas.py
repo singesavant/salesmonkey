@@ -17,10 +17,16 @@ class ERPUserSchema(ERPDocument):
 class ERPItemSchema(ERPDocument):
     code = fields.String(load_from="item_code")
     name = fields.String(load_from="item_name")
+    disabled = fields.Boolean(load_from="disabled")
     description_html = fields.String(load_from="description")
-    long_description_html = fields.String(load_from='web_long_description')
+    website_long_description_html = fields.String(load_from='web_long_description')
     price = fields.Float(load_from='standard_rate')
+    total_projected_qty = fields.Float(load_from='total_projected_qty')
     thumbnail = fields.String()
+
+
+class ERPItemGroupSchema(ERPDocument):
+    name = fields.String(load_from="name")
 
 
 class ERPCustomerSchema(ERPDocument):

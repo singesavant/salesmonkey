@@ -29,7 +29,9 @@ from .auth.manager import login_manager
 
 from . import (
     auth,
-    preorders
+    beers,
+    shop,
+    brewshop
 )
 
 from .erpnext import erp_client

@@ -20,7 +20,7 @@ class Api:
     def register(self, path, aMethodResource):
         self._deferred_routes.append(
             ("/{0}/{1}".format(self.prefix, path.lstrip('/')),
-             aMethodResource.as_view(name=aMethodResource.__name__.lower())
+             aMethodResource.as_view(name=aMethodResource.__module__ + "_" + aMethodResource.__name__.lower())
              )
         )
 

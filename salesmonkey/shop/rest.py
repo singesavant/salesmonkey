@@ -45,7 +45,7 @@ import logging
 
 LOGGER = logging.getLogger(__name__)
 
-class PreorderCartDetail(MethodResource):
+class CartDetail(MethodResource):
     """
     User Cart
     """
@@ -133,8 +133,8 @@ class PreorderCartDetail(MethodResource):
         so = erp_client.create_sales_order(customer=customer['name'],
                                            order_type="Shopping Cart",
                                            naming_series="SO-WEB-.YY.MM.DD.-.###",
-                                           title="Préco Web {0} {1}".format(current_user.first_name,
-                                                                            current_user.last_name),
+                                           title="Commande Web {0} {1}".format(current_user.first_name,
+                                                                               current_user.last_name),
                                            items=items)
 
         # Empty Cart once SO has been placed
@@ -142,25 +142,30 @@ class PreorderCartDetail(MethodResource):
 
         return cart
 
-api_v1.register('/preorders/cart/', PreorderCartDetail)
+api_v1.register('/shop/cart/', CartDetail)
 
 
 @marshal_with(ERPItemSchema(many=True))
 class ItemList(MethodResource):
     @login_required
+    @use_kwargs({'item_group': fields.Str()})
     def get(self, **kwargs):
+        item_group = kwargs.get('item_group', None)
+
         # Items without variants
         items_no_variant = erp_client.query(ERPItem).list(erp_fields=["name", "description", "item_code", "web_long_description", "standard_rate", "thumbnail"],
                                                           filters=[["Item", "show_in_website", "=", "1"],
-                                                                   ["Item", "has_variants", "=", "0"]])
+                                                                   ["Item", "has_variants", "=", "0"],
+                                                                   ["Item", "item_group", "=", item_group]])
 
         # Items with variants
         items_variants = erp_client.query(ERPItem).list(erp_fields=["name", "description", "item_code", "web_long_description", "standard_rate", "thumbnail"],
-                                               filters=[["Item", "show_variant_in_website", "=", "1"]])
+                                                        filters=[["Item", "show_variant_in_website", "=", "1"],
+                                                                 ["Item", "item_group", "=", item_group]])
 
         return items_no_variant + items_variants
 
-api_v1.register('/preorders/items/', ItemList)
+api_v1.register('/shop/items/', ItemList)
 
 
 class ItemDetail(MethodResource):
@@ -196,7 +201,7 @@ class ItemDetail(MethodResource):
 
 
 
-api_v1.register('/preorders/items/<name>', ItemDetail)
+api_v1.register('/shop/items/<name>', ItemDetail)
 
 
 @marshal_with(ERPSalesOrderSchema(many=True))
@@ -211,7 +216,7 @@ class UserSalesOrderList(MethodResource):
 
         return sales_orders
 
-api_v1.register('/preorders/my/', UserSalesOrderList)
+api_v1.register('/shop/orders/', UserSalesOrderList)
 
 
 @marshal_with(ERPSalesOrderSchema)
@@ -226,4 +231,4 @@ class UserSalesOrderDetail(MethodResource):
 
         return sales_order
 
-api_v1.register('/preorders/my/<name>/', UserSalesOrderDetail)
+api_v1.register('/shop/orders/<name>/', UserSalesOrderDetail)
