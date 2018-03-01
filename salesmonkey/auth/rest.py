@@ -16,12 +16,17 @@ from flask_apispec import (
 
 from .schemas import UserSchema
 
-
 from .models import User
 from flask_login import login_user
 
 from ..erpnext import erp_client
-from ..erpnext_client.documents import ERPUser
+from ..erpnext_client.documents import (
+    ERPUser,
+    ERPCustomer,
+    ERPContact,
+    ERPDynamicLink
+)
+
 
 import logging
 
@@ -77,6 +82,57 @@ class AuthWith(MethodResource):
 
         return erp_user
 
+    def _get_or_create_contact_and_customer_for_user(self, aUser):
+        """
+        Get or create Customer and Contact objects for the given user on the ERP
+        """
+        # Contact Creation
+        try:
+            contact = erp_client.query(ERPContact).first(filters=[['Contact', 'user', '=', aUser.username]],
+                                                         erp_fields=['name', 'first_name', 'last_name'])
+            LOGGER.debug("Found Contact <{0}> on ERP".format(contact['name']))
+        except ERPContact.DoesNotExist:
+            contact = erp_client.query(ERPContact).create(data={'email_id': aUser.email,
+                                                                'email': aUser.email,
+                                                                'first_name': aUser.first_name,
+                                                                'last_name': aUser.last_name})
+
+            LOGGER.debug("Created Contact <{0}> on ERP".format(contact['name']))
+
+        # Contact -> Customer Link
+        customer = None
+        try:
+            link = erp_client.query(ERPDynamicLink).first(filters=[['Dynamic Link', 'parenttype', '=', 'Contact'],
+                                                                   ['Dynamic Link', 'parent', '=', contact['name']],
+                                                                   ['Dynamic Link', 'parentfield', '=', 'links']],
+                                                          erp_fields=['name', 'link_name', 'parent', 'parenttype'])
+
+            customer = erp_client.query(ERPCustomer).first(filters=[['Customer', 'name', '=', link['link_name']]])
+            LOGGER.debug("Found Customer <{0}> on ERP".format(customer['name']))
+
+        except ERPDynamicLink.DoesNotExist:
+            customer = erp_client.query(ERPCustomer).create(data={'customer_name': "{0} {1}".format(contact['first_name'],
+                                                                                                    contact['last_name']),
+                                                                  'customer_type': 'Individual',
+                                                                  'language': 'fr',
+                                                                  'customer_group': 'Individual',
+                                                                  'territory': 'France'})
+
+            # Create link between Contact and Customer
+            link = erp_client.query(ERPDynamicLink).create(data={'parent': contact['name'],
+                                                                 'parenttype': 'Contact',
+                                                                 'parentfield': 'links',
+                                                                 'link_doctype': 'Customer',
+                                                                 'link_name': customer['name']})
+
+            LOGGER.debug("Created Customer <{0}> on ERP".format(customer['name']))
+
+        if customer is None:
+            raise Unauthorized
+
+        return contact, customer
+
+
 
     @use_kwargs({'provider': fields.Str(required=True)})
     @use_kwargs({'token': fields.Str(required=True)})
@@ -92,6 +148,11 @@ class AuthWith(MethodResource):
                     last_name=erp_user['last_name'])
 
         if login_user(user):
+            # Create ERP Contact and Customer
+            contact, customer = self._get_or_create_contact_and_customer_for_user(user)
+            session['contact'] = contact
+            session['customer'] = customer
+
             return user
 
         raise NotAuthorized

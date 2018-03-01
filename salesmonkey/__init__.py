@@ -31,6 +31,7 @@ from . import (
     auth,
     beers,
     shop,
+    checkout,
     brewshop
 )
 

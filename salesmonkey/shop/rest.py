@@ -11,6 +11,8 @@ from flask_apispec import (
 
 from flask_login import login_required
 
+from flask import session
+
 from webargs import fields
 from webargs.flaskparser import use_args
 
@@ -67,58 +69,10 @@ class CartDetail(MethodResource):
         cart.add(Item(item_code, item_code, 0.0),
                  quantity=0, replace=True)
 
-    def _prepare_erp_data_for_user(self, aUser):
-        # Contact Creation
-        try:
-            contact = erp_client.query(ERPContact).first(filters=[['Contact', 'user', '=', aUser.username]],
-                                                         erp_fields=['name', 'first_name', 'last_name'])
-            LOGGER.debug("Found Contact <{0}> on ERP".format(contact['name']))
-        except ERPContact.DoesNotExist:
-            contact = erp_client.query(ERPContact).create(data={'email_id': aUser.email,
-                                                                'email': aUser.email,
-                                                                'first_name': aUser.first_name,
-                                                                'last_name': aUser.last_name})
-
-            LOGGER.debug("Created Contact <{0}> on ERP".format(contact['name']))
-
-        # Contact -> Customer Link
-        customer = None
-        try:
-            link = erp_client.query(ERPDynamicLink).first(filters=[['Dynamic Link', 'parenttype', '=', 'Contact'],
-                                                                   ['Dynamic Link', 'parent', '=', contact['name']],
-                                                                   ['Dynamic Link', 'parentfield', '=', 'links']],
-                                                          erp_fields=['name', 'link_name', 'parent', 'parenttype'])
-
-        except ERPDynamicLink.DoesNotExist:
-            customer = erp_client.query(ERPCustomer).create(data={'customer_name': "{0} {1}".format(contact['first_name'],
-                                                                                                    contact['last_name']),
-                                                                  'customer_type': 'Individual',
-                                                                  'language': 'fr',
-                                                                  'customer_group': 'Individual',
-                                                                  'territory': 'France'})
-
-            # Create link between Contact and Customer
-            link = erp_client.query(ERPDynamicLink).create(data={'parent': contact['name'],
-                                                                 'parenttype': 'Contact',
-                                                                 'parentfield': 'links',
-                                                                 'link_doctype': 'Customer',
-                                                                 'link_name': customer['name']})
-
-            LOGGER.debug("Created Customer <{0}> on ERP".format(customer['name']))
-            if customer is None:
-                # Customer
-                try:
-                    customer = erp_client.query(ERPCustomer).first(filters=[['Customer', 'name', '=', link['link_name']]])
-                    LOGGER.debug("Found Customer <{0}> on ERP".format(customer['name']))
-                except ERPCustomer.DoesNotExist:
-                    raise Unauthorized
-
-
-        return contact, customer
 
 
     @login_required
-    @marshal_with(CartSchema)
+    @marshal_with(ERPSalesOrderSchema)
     def post(self):
         cart = Cart.from_session()
         if cart.count() <= 0:
@@ -126,21 +80,25 @@ class CartDetail(MethodResource):
 
         items = [{'item_code': line.product.code, 'qty': line.quantity} for line in cart]
 
-        contact, customer = self._prepare_erp_data_for_user(current_user)
+        # FIXME We should check the quantities!
 
         # Place SO
         num_gen = OrderNumberGenerator()
-        so = erp_client.create_sales_order(customer=customer['name'],
-                                           order_type="Shopping Cart",
-                                           naming_series="SO-WEB-.YY.MM.DD.-.###",
-                                           title="Commande Web {0} {1}".format(current_user.first_name,
-                                                                               current_user.last_name),
-                                           items=items)
+        response = erp_client.create_sales_order(customer=session['customer']['name'],
+                                                 order_type="Shopping Cart",
+                                                 naming_series="SO-WEB-.YY.MM.DD.-.###",
+                                                 title="Commande Web {0} {1}".format(current_user.first_name,
+                                                                                     current_user.last_name),
+                                                 items=items)
 
-        # Empty Cart once SO has been placed
-        cart.clear()
+        if response.ok:
+            # Empty Cart once SO has been placed
+            cart.clear()
+            sales_order = response.json()['data']
+            return sales_order
+        else:
+            response.raise_for_error()
 
-        return cart
 
 api_v1.register('/shop/cart/', CartDetail)
 
@@ -208,9 +166,21 @@ api_v1.register('/shop/items/<name>', ItemDetail)
 class UserSalesOrderList(MethodResource):
     @login_required
     def get(self):
+        # FIXME duplicate code
+        contact = erp_client.query(ERPContact).first(filters=[['Contact', 'user', '=', current_user.username]],
+                                                     erp_fields=['name', 'first_name', 'last_name'])
+
+        link = erp_client.query(ERPDynamicLink).first(filters=[['Dynamic Link', 'parenttype', '=', 'Contact'],
+                                                               ['Dynamic Link', 'parent', '=', contact['name']],
+                                                               ['Dynamic Link', 'parentfield', '=', 'links']],
+                                                      erp_fields=['name', 'link_name', 'parent', 'parenttype'])
+
+
+        customer = erp_client.query(ERPCustomer).first(filters=[['Customer', 'name', '=', link['link_name']]])
+
         sales_orders = erp_client.query(ERPSalesOrder).list(erp_fields=["name", "grand_total", "title", "customer", "transaction_date"],
                                                             filters=[
-                                                                ["Sales Order", "Customer", "=", "Guillaume Libersat"],
+                                                                ["Sales Order", "Customer", "=", customer['name']],
                                                                 ["Sales Order", "status", "!=", "Cancelled"]],
                                                             schema_fields=['name', 'amount_total', 'title', 'customer', 'transaction_date'])
 
@@ -223,12 +193,68 @@ api_v1.register('/shop/orders/', UserSalesOrderList)
 class UserSalesOrderDetail(MethodResource):
     @login_required
     def get(self, name):
+        # FIXME duplicate code
+        contact = erp_client.query(ERPContact).first(filters=[['Contact', 'user', '=', current_user.username]],
+                                                     erp_fields=['name', 'first_name', 'last_name'])
+
+        link = erp_client.query(ERPDynamicLink).first(filters=[['Dynamic Link', 'parenttype', '=', 'Contact'],
+                                                               ['Dynamic Link', 'parent', '=', contact['name']],
+                                                               ['Dynamic Link', 'parentfield', '=', 'links']],
+                                                      erp_fields=['name', 'link_name', 'parent', 'parenttype'])
+
+
+        customer = erp_client.query(ERPCustomer).first(filters=[['Customer', 'name', '=', link['link_name']]])
+
+
         try:
             sales_order = erp_client.query(ERPSalesOrder).get(name,
-                                                              fields='["name", "title", "grand_total", "customer", "items", "transaction_date"]')
+                                                              fields='["name", "title", "grand_total", "customer", "items", "transaction_date"]',
+                                                              filters=[["Sales Order", "Customer", "=", customer['name']],
+                                                                       ["Sales Order", "status", "!=", "Cancelled"]])
         except ERPSalesOrder.DoesNotExist:
             raise NotFound
 
         return sales_order
 
 api_v1.register('/shop/orders/<name>/', UserSalesOrderDetail)
+
+#-- Shipping Method
+class UserSalesOrderShippingMethod(MethodResource):
+    @login_required
+    def get(self, name):
+        """
+        Retrieve the shipping method
+        """
+        # FIXME duplicate code
+        contact = erp_client.query(ERPContact).first(filters=[['Contact', 'user', '=', current_user.username]],
+                                                     erp_fields=['name', 'first_name', 'last_name'])
+
+        link = erp_client.query(ERPDynamicLink).first(filters=[['Dynamic Link', 'parenttype', '=', 'Contact'],
+                                                               ['Dynamic Link', 'parent', '=', contact['name']],
+                                                               ['Dynamic Link', 'parentfield', '=', 'links']],
+                                                      erp_fields=['name', 'link_name', 'parent', 'parenttype'])
+
+
+        customer = erp_client.query(ERPCustomer).first(filters=[['Customer', 'name', '=', link['link_name']]])
+
+
+        try:
+            sales_order = erp_client.query(ERPSalesOrder).get(name,
+                                                              fields='["name", "title", "grand_total", "customer", "items", "transaction_date"]',
+                                                              filters=[["Sales Order", "Customer", "=", customer['name']],
+                                                                       ["Sales Order", "status", "!=", "Cancelled"]])
+        except ERPSalesOrder.DoesNotExist:
+            raise NotFound
+
+        return sales_order
+
+    @login_required
+    def post(self, name):
+        """
+        Set the shipping method
+        """
+        pass
+
+api_v1.register('/shop/orders/<name>/shipping', UserSalesOrderShippingMethod)
+
+
