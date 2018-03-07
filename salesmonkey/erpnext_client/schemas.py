@@ -23,6 +23,8 @@ class ERPItemSchema(ERPDocument):
     price = fields.Float(load_from='standard_rate')
     total_projected_qty = fields.Float(load_from='total_projected_qty')
     thumbnail = fields.String()
+    has_variants = fields.Boolean(load_from="has_variants")
+    variants = fields.Nested("ERPItemSchema", many=True)
 
 
 class ERPItemGroupSchema(ERPDocument):

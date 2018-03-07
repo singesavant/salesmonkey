@@ -105,33 +105,42 @@ api_v1.register('/shop/cart/', CartDetail)
 
 @marshal_with(ERPItemSchema(many=True))
 class ItemList(MethodResource):
-    @login_required
     @use_kwargs({'item_group': fields.Str()})
     def get(self, **kwargs):
         item_group = kwargs.get('item_group', None)
 
         # Items without variants
-        items_no_variant = erp_client.query(ERPItem).list(erp_fields=["name", "description", "item_code", "web_long_description", "standard_rate", "thumbnail"],
-                                                          filters=[["Item", "show_in_website", "=", "1"],
-                                                                   ["Item", "has_variants", "=", "0"],
-                                                                   ["Item", "item_group", "=", item_group]])
+        items = erp_client.query(ERPItem).list(erp_fields=["name", "description", "has_variants", "item_code", "web_long_description", "standard_rate", "thumbnail"],
+                                               filters=[["Item", "show_in_website", "=", "1"],
+                                                        ["Item", "is_sales_item", "=", True],
+                                                        ["Item", "disabled", "=", False],
+                                                        ["Item", "item_group", "=", item_group]])
 
         # Items with variants
-        items_variants = erp_client.query(ERPItem).list(erp_fields=["name", "description", "item_code", "web_long_description", "standard_rate", "thumbnail"],
-                                                        filters=[["Item", "show_variant_in_website", "=", "1"],
-                                                                 ["Item", "item_group", "=", item_group]])
+        # items_variants = erp_client.query(ERPItem).list(erp_fields=["name", "description", "item_code", "web_long_description", "standard_rate", "thumbnail"],
+        #                                                filters=[["Item", "show_variant_in_website", "=", "1"],
+        #                                                         ["Item", "item_group", "=", item_group]])
 
-        return items_no_variant + items_variants
+        return items
 
 api_v1.register('/shop/items/', ItemList)
 
 
 class ItemDetail(MethodResource):
-    @login_required
     @marshal_with(ERPItemSchema)
     def get(self, name):
         try:
             item = erp_client.query(ERPItem).get(name)
+            # Fetch the variants
+            if item['has_variants'] is True:
+                item_variants = erp_client.query(ERPItem).list(erp_fields=["name", "standard_rate", "total_projected_qty", "website_image"],
+                                                               filters=[
+                                                                   ["Item", "variant_of", "=", item['name']],
+                                                                   ["Item", "is_sales_item", "=", True],
+                                                                   ["Item", "show_variant_in_website", "=", True]
+                                                               ])
+                item['variants'] = item_variants
+
         except ERPItem.DoesNotExist:
             raise NotFound
 
