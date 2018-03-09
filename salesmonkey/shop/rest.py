@@ -25,6 +25,7 @@ from ..erpnext_client.documents import (
     ERPItem,
     ERPSalesOrder,
     ERPUser,
+    ERPBin,
     ERPCustomer,
     ERPContact,
     ERPDynamicLink
@@ -109,37 +110,53 @@ class ItemList(MethodResource):
     def get(self, **kwargs):
         item_group = kwargs.get('item_group', None)
 
-        # Items without variants
+        # Items
         items = erp_client.query(ERPItem).list(erp_fields=["name", "description", "has_variants", "item_code", "web_long_description", "standard_rate", "thumbnail"],
                                                filters=[["Item", "show_in_website", "=", "1"],
                                                         ["Item", "is_sales_item", "=", True],
                                                         ["Item", "disabled", "=", False],
                                                         ["Item", "item_group", "=", item_group]])
 
-        # Items with variants
-        # items_variants = erp_client.query(ERPItem).list(erp_fields=["name", "description", "item_code", "web_long_description", "standard_rate", "thumbnail"],
-        #                                                filters=[["Item", "show_variant_in_website", "=", "1"],
-        #                                                         ["Item", "item_group", "=", item_group]])
-
         return items
 
 api_v1.register('/shop/items/', ItemList)
 
+class ShopItemSchema(ERPItemSchema):
+    """
+    Item Schema extended with a few calculations
+    """
+    orderable_qty = fields.String(load_from='orderable_qty')
+    variants = fields.Nested("ShopItemSchema", many=True)
+
 
 class ItemDetail(MethodResource):
-    @marshal_with(ERPItemSchema)
+    @marshal_with(ShopItemSchema)
     def get(self, name):
         try:
             item = erp_client.query(ERPItem).get(name)
             # Fetch the variants
             if item['has_variants'] is True:
-                item_variants = erp_client.query(ERPItem).list(erp_fields=["name", "standard_rate", "total_projected_qty", "website_image"],
+                item_variants = erp_client.query(ERPItem).list(erp_fields=["item_code", "name", "standard_rate", "website_image", "website_warehouse"],
                                                                filters=[
-                                                                   ["Item", "variant_of", "=", item['name']],
+                                                                   ["Item", "variant_of", "=", item['code']],
                                                                    ["Item", "is_sales_item", "=", True],
                                                                    ["Item", "show_variant_in_website", "=", True]
                                                                ])
                 item['variants'] = item_variants
+
+                # Fetch variant quantity
+                for item_variant in item_variants:
+                    bin = erp_client.query(ERPBin).first(erp_fields=["projected_qty"],
+                                                         filters=[
+                                                             ["Bin", "item_code", "=", item_variant['code']],
+                                                             ["Bin", "warehouse", "=", item['website_warehouse']]
+                                                         ])
+                    item_variant['orderable_qty'] = max(bin['projected_qty'], 0)
+                    del item_variant['website_warehouse']
+
+            else:
+                # Fetch item qtty
+                pass
 
         except ERPItem.DoesNotExist:
             raise NotFound

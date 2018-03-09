@@ -20,11 +20,27 @@ class ERPItemSchema(ERPDocument):
     disabled = fields.Boolean(load_from="disabled")
     description_html = fields.String(load_from="description")
     website_long_description_html = fields.String(load_from='web_long_description')
+    website_warehouse = fields.String(load_from='website_warehouse')
     price = fields.Float(load_from='standard_rate')
     total_projected_qty = fields.Float(load_from='total_projected_qty')
     thumbnail = fields.String()
     has_variants = fields.Boolean(load_from="has_variants")
     variants = fields.Nested("ERPItemSchema", many=True)
+
+
+class ERPBinSchema(ERPDocument):
+    """
+    A Bin is a stock status for a given item in a given warehouse
+    """
+    item_code = fields.String(load_from="item_code")
+    name = fields.String(load_from="item_name")
+    warehouse = fields.String(load_from="warehouse")
+    reserved_qty = fields.Float(load_from='reserved_qty')
+    actual_qty = fields.Float(load_from='actual_qty')
+    ordered_qty = fields.Float(load_from='ordered_qty')
+    indented_qty = fields.Float(load_from='indented_qty')
+    planned_qty = fields.Float(load_from='planned_qty')
+    projected_qty = fields.Float(load_from='projected_qty')
 
 
 class ERPItemGroupSchema(ERPDocument):

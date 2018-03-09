@@ -7,7 +7,8 @@ from .schemas import (
     ERPCustomerSchema,
     ERPUserSchema,
     ERPContactSchema,
-    ERPDynamicLinkSchema
+    ERPDynamicLinkSchema,
+    ERPBinSchema
 )
 
 
@@ -84,6 +85,11 @@ class ERPDynamicLink(ERPResource):
 class ERPItem(ERPResource):
     doctype = "Item"
     schema = ERPItemSchema
+
+
+class ERPBin(ERPResource):
+    doctype = "Bin"
+    schema = ERPBinSchema
 
 
 class ERPItemGroup(ERPResource):
