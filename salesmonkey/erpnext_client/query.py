@@ -88,7 +88,7 @@ class ERPNextClient:
     def get_resource(self, resource_type_name, resource_name, fields=[], filters=[]):
         params = {"fields": fields,
                   "filters": json.dumps(filters)}
-        
+
         return self._get("resource/{0}/{1}".format(resource_type_name,
                                                    resource_name),
                          params=params)

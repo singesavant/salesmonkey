@@ -8,7 +8,9 @@ from .schemas import (
     ERPUserSchema,
     ERPContactSchema,
     ERPDynamicLinkSchema,
-    ERPBinSchema
+    ERPBinSchema,
+    ERPWebsiteSlideshow,
+    ERPWebsiteSlideshowItem
 )
 
 
@@ -115,3 +117,14 @@ class ERPSalesOrder(ERPResource):
 class ERPUser(ERPResource):
     doctype = "User"
     schema = ERPUserSchema
+
+class ERPWebsiteSlideshow(ERPResource):
+    doctype = "Website Slideshow"
+    schema = ERPWebsiteSlideshow
+
+
+class ERPWebsiteSlideshowItem(ERPResource):
+    doctype = "Website Slideshow Item"
+    schema = ERPWebsiteSlideshowItem
+
+

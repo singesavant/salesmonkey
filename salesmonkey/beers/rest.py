@@ -14,7 +14,8 @@ from ..erpnext_client.schemas import (
 )
 
 from ..erpnext_client.documents import (
-    ERPItem
+    ERPItem,
+    ERPWebsiteSlideshow
 )
 
 from ..erpnext import erp_client
@@ -39,7 +40,15 @@ class BeerList(MethodResource):
 
 api_v1.register('/beers/', BeerList)
 
-@marshal_with(ERPItemSchema())
+
+class BeerItemSchema(ERPItemSchema):
+    """
+    Item Schema extended with a few calculations
+    """
+    slideshow_items = fields.Nested("ERPWebsiteSlideshowItem", many=True, load_from='slideshow_items')
+
+
+@marshal_with(BeerItemSchema())
 class BeerDetails(MethodResource):
     """
     Return details of a beer
@@ -52,10 +61,17 @@ class BeerDetails(MethodResource):
             raise NotFound
 
         item = erp_client.query(ERPItem).get(beer_slug,
-                                             fields=["name", "description", "disabled", "item_code", "web_long_description", "website_specifications", "thumbnail"],
+                                             fields=["name", "slideshow", "description", "disabled", "item_code", "web_long_description", "website_specifications", "thumbnail", "website_image"],
                                              filters=[["Item", "show_in_website", "=", "1"],
                                                       ["Item", "is_sales_item", "=", True]])
-
+        # If we have a slideshow, retrieve images
+        if 'slideshow' in item:
+            try:
+                slideshow = erp_client.query(ERPWebsiteSlideshow).get(item['slideshow'])
+                item['slideshow_items'] = slideshow['slideshow_items']
+            except ERPWebsiteSlideshow.DoesNotExist:
+                # There's no slideshow, we're fine
+                pass
 
         return item
 

@@ -24,8 +24,11 @@ class ERPItemSchema(ERPDocument):
     price = fields.Float(load_from='standard_rate')
     total_projected_qty = fields.Float(load_from='total_projected_qty')
     thumbnail = fields.String()
+    website_image = fields.String()
+    slideshow = fields.String()
     has_variants = fields.Boolean(load_from="has_variants")
     variants = fields.Nested("ERPItemSchema", many=True)
+    website_specifications = fields.Nested('ERPItemWebsiteSpecificationSchema', many=True, load_from='website_sepecifications')
 
 
 class ERPBinSchema(ERPDocument):
@@ -80,3 +83,20 @@ class ERPSalesOrderSchema(ERPDocument):
     customer = fields.Str()
     amount_total = fields.Float(load_from="grand_total")
     items = fields.Nested(ERPSalesOrderItemSchema, many=True)
+
+
+class ERPItemWebsiteSpecificationSchema(ERPDocument):
+    """
+    A key:value pair for adding attributes to items for the website
+    """
+    label = fields.Str()
+    description = fields.String()
+
+class ERPWebsiteSlideshowItem(ERPDocument):
+    image = fields.String()
+    description = fields.String()
+    heading = fields.String(load_from="heading")
+
+class ERPWebsiteSlideshow(ERPDocument):
+    slideshow_items = fields.Nested("ERPWebsiteSlideshowItem", many=True)
+
