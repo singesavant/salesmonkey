@@ -31,7 +31,7 @@ class BeerList(MethodResource):
     def get(self, **kwargs):
         item_group = kwargs.get('item_group', "Bières du Singe")
 
-        items = erp_client.query(ERPItem).list(erp_fields=["name", "description", "disabled", "item_code", "web_long_description", "thumbnail"],
+        items = erp_client.query(ERPItem).list(erp_fields=["name", "description", "disabled", "item_code", "website_image", "thumbnail"],
                                                filters=[["Item", "show_in_website", "=", "1"],
                                                         ["Item", "is_sales_item", "=", True],
                                                         ["Website Item Group", "item_group", "=", item_group]])
