@@ -1,0 +1,10 @@
+flask
+coloredlogs
+flask-cors
+flask-marshmallow
+flask-session
+flask-apispec
+flask-login
+redis
+requests
+satchless
