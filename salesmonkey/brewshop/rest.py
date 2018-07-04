@@ -25,7 +25,6 @@ from ..erpnext_client.documents import (
 
 @marshal_with(ERPItemSchema(many=True))
 class ItemList(MethodResource):
-    @login_required
     @use_kwargs({'item_group': fields.Str()})
     def get(self, **kwargs):
         item_group = kwargs.get('item_group', "")
