@@ -13,11 +13,11 @@ class User(UserMixin):
     def get_id(self):
         return self.email
 
-from ..erpnext_client.schemas import (
+from erpnext_client.schemas import (
     ERPUserSchema
 )
 
-from ..erpnext_client.documents import (
+from erpnext_client.documents import (
     ERPUser
 )
 

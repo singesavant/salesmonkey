@@ -16,12 +16,12 @@ from flask import session
 from webargs import fields
 from webargs.flaskparser import use_args
 
-from ..erpnext_client.schemas import (
+from erpnext_client.schemas import (
     ERPItemSchema,
     ERPSalesOrderSchema,
     ERPSalesOrderItemSchema
 )
-from ..erpnext_client.documents import (
+from erpnext_client.documents import (
     ERPItem,
     ERPSalesOrder,
     ERPUser,
@@ -52,7 +52,6 @@ class CartDetail(MethodResource):
     """
     User Cart
     """
-    @login_required
     @marshal_with(CartSchema)
     def get(self, **kwargs):
         return Cart.from_session()
@@ -109,6 +108,7 @@ class ItemList(MethodResource):
     @use_kwargs({'item_group': fields.Str()})
     def get(self, **kwargs):
         item_group = kwargs.get('item_group', None)
+        print("coinnnn")
 
         # Items
         items = erp_client.query(ERPItem).list(erp_fields=["name", "description", "has_variants", "item_code", "web_long_description", "standard_rate", "thumbnail"],
@@ -135,13 +135,16 @@ class ItemDetail(MethodResource):
         try:
             item = erp_client.query(ERPItem).get(name)
             # Fetch the variants
+            LOGGER.debug(item['has_variants'])
             if item['has_variants'] is True:
+                LOGGER.debug("Fetching variants for {0}".format(item['code']))
                 item_variants = erp_client.query(ERPItem).list(erp_fields=["item_code", "name", "standard_rate", "website_image", "website_warehouse"],
                                                                filters=[
                                                                    ["Item", "variant_of", "=", item['code']],
                                                                    ["Item", "is_sales_item", "=", True],
                                                                    ["Item", "show_variant_in_website", "=", True]
                                                                ])
+                LOGGER.debug(item_variants)
                 item['variants'] = item_variants
 
                 # Fetch variant quantity

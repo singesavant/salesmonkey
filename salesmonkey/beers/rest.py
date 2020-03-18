@@ -9,11 +9,11 @@ from flask_apispec import (
     use_kwargs
 )
 
-from ..erpnext_client.schemas import (
+from erpnext_client.schemas import (
     ERPItemSchema,
 )
 
-from ..erpnext_client.documents import (
+from erpnext_client.documents import (
     ERPItem,
     ERPWebsiteSlideshow
 )
@@ -60,10 +60,14 @@ class BeerDetails(MethodResource):
         if beer_slug is None:
             raise NotFound
 
-        item = erp_client.query(ERPItem).get(beer_slug,
-                                             fields=["name", "slideshow", "description", "disabled", "item_code", "web_long_description", "website_specifications", "thumbnail", "website_image"],
-                                             filters=[["Item", "show_in_website", "=", "1"],
-                                                      ["Item", "is_sales_item", "=", True]])
+        try:
+            item = erp_client.query(ERPItem).get(beer_slug,
+                                                 fields=["name", "slideshow", "description", "disabled", "item_code", "web_long_description", "website_specifications", "thumbnail", "website_image"],
+                                                 filters=[["Item", "show_in_website", "=", "1"],
+                                                          ["Item", "is_sales_item", "=", True]])
+        except ERPItem.DoesNotExist:
+            raise NotFound
+
         # If we have a slideshow, retrieve images
         if 'slideshow' in item:
             try:

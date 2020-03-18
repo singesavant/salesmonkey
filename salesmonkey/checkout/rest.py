@@ -16,12 +16,12 @@ from flask import session
 from webargs import fields
 from webargs.flaskparser import use_args
 
-from ..erpnext_client.schemas import (
+from erpnext_client.schemas import (
     ERPItemSchema,
     ERPSalesOrderSchema,
     ERPSalesOrderItemSchema
 )
-from ..erpnext_client.documents import (
+from erpnext_client.documents import (
     ERPItem,
     ERPSalesOrder,
     ERPUser,

@@ -15,11 +15,11 @@ from ..rest import api_v1
 
 from ..erpnext import erp_client
 
-from ..erpnext_client.schemas import (
+from erpnext_client.schemas import (
     ERPItemSchema
 )
 
-from ..erpnext_client.documents import (
+from erpnext_client.documents import (
     ERPItem,
 )
 

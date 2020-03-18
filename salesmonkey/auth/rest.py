@@ -20,7 +20,7 @@ from .models import User
 from flask_login import login_user
 
 from ..erpnext import erp_client
-from ..erpnext_client.documents import (
+from erpnext_client.documents import (
     ERPUser,
     ERPCustomer,
     ERPContact,
