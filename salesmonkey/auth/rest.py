@@ -105,7 +105,8 @@ class AuthWith(MethodResource):
             link = erp_client.query(ERPDynamicLink).first(filters=[['Dynamic Link', 'parenttype', '=', 'Contact'],
                                                                    ['Dynamic Link', 'parent', '=', contact['name']],
                                                                    ['Dynamic Link', 'parentfield', '=', 'links']],
-                                                          erp_fields=['name', 'link_name', 'parent', 'parenttype'])
+                                                          erp_fields=['name', 'link_name', 'parent', 'parenttype'],
+                                                          parent="Contact")
 
             customer = erp_client.query(ERPCustomer).first(filters=[['Customer', 'name', '=', link['link_name']]])
             LOGGER.debug("Found Customer <{0}> on ERP".format(customer['name']))

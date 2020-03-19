@@ -78,8 +78,7 @@ class SumUpClient:
 
         response = oauth.fetch_token(token_url='https://api.sumup.com/token',
                                      client_id=self.client_id,
-                                     client_secret=self.client_secret,
-                                     auth={})
+                                     client_secret=self.client_secret)
 
         self.token = response.get('access_token', None)
 
@@ -93,6 +92,7 @@ class SumUpClient:
                                 'currency': currency,
                                 'pay_to_email': self.merchant_email,
                                 'checkout_reference': reference,
+                                # 'return_url': 'http://singe-savant.com/return',
                                 'description': description})
 
         if not r.ok:
@@ -123,12 +123,12 @@ class SalesOrderSumUpPayment(Step):
                                            "{0}-{1}".format(self.sales_order['name'], str(random.randint(0, 1000))),
                                            "Website - {0}".format(self.sales_order['title']))
 
-    def validate(self):
-        # checkout = self.client.get_checkout("CHECKOUT ID") # FIMXE
-        # if checkout['status'] == 'PAID':
-        #     return True
-        # else:
-        raise InvalidData('Payment not accepted')
+    def validate_as_payed(self):
+        checkout = self.client.get_checkout("CHECKOUT ID")
+        if checkout['status'] == 'PAID':
+            return True
+        else:
+            raise InvalidData('Payment not accepted')
 
 
 class SalesOrderCheckoutManager(ProcessManager):
