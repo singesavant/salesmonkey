@@ -83,6 +83,7 @@ class CartDetail(MethodResource):
         # FIXME We should check the quantities!
 
         # Place SO
+        # FIXME OrderNumberGenerator not used?
         num_gen = OrderNumberGenerator()
         response = erp_client.create_sales_order(customer=session['customer']['name'],
                                                  order_type="Shopping Cart",
@@ -171,6 +172,9 @@ class ItemDetail(MethodResource):
     @use_kwargs({'quantity': fields.Int(missing=1)})
     @marshal_with(None, code=201)
     def post(self, name, **kwargs):
+        """
+        Add/update a quantity of this item to the Cart
+        """
         try:
             item = erp_client.query(ERPItem).get(name)
         except ERPItem.DoesNotExist:
@@ -182,6 +186,8 @@ class ItemDetail(MethodResource):
         cart = Cart.from_session()
 
         quantity = max(0, int(kwargs['quantity']))
+
+        # FIXME Make sure we don't go over orderable_qty
 
         cart.add(Item(item['code'], item['name'], item['price']),
                  quantity=quantity, replace=False)
@@ -202,7 +208,8 @@ class UserSalesOrderList(MethodResource):
         link = erp_client.query(ERPDynamicLink).first(filters=[['Dynamic Link', 'parenttype', '=', 'Contact'],
                                                                ['Dynamic Link', 'parent', '=', contact['name']],
                                                                ['Dynamic Link', 'parentfield', '=', 'links']],
-                                                      erp_fields=['name', 'link_name', 'parent', 'parenttype'])
+                                                      erp_fields=['name', 'link_name', 'parent', 'parenttype'],
+                                                      parent="Contact")
 
 
         customer = erp_client.query(ERPCustomer).first(filters=[['Customer', 'name', '=', link['link_name']]])
@@ -229,7 +236,8 @@ class UserSalesOrderDetail(MethodResource):
         link = erp_client.query(ERPDynamicLink).first(filters=[['Dynamic Link', 'parenttype', '=', 'Contact'],
                                                                ['Dynamic Link', 'parent', '=', contact['name']],
                                                                ['Dynamic Link', 'parentfield', '=', 'links']],
-                                                      erp_fields=['name', 'link_name', 'parent', 'parenttype'])
+                                                      erp_fields=['name', 'link_name', 'parent', 'parenttype'],
+                                                      parent="Contact")
 
 
         customer = erp_client.query(ERPCustomer).first(filters=[['Customer', 'name', '=', link['link_name']]])
@@ -245,7 +253,7 @@ class UserSalesOrderDetail(MethodResource):
 
         return sales_order
 
-api_v1.register('/shop/orders/<name>/', UserSalesOrderDetail)
+api_v1.register('/shop/orders/<name>', UserSalesOrderDetail)
 
 #-- Shipping Method
 class UserSalesOrderShippingMethod(MethodResource):
@@ -261,7 +269,8 @@ class UserSalesOrderShippingMethod(MethodResource):
         link = erp_client.query(ERPDynamicLink).first(filters=[['Dynamic Link', 'parenttype', '=', 'Contact'],
                                                                ['Dynamic Link', 'parent', '=', contact['name']],
                                                                ['Dynamic Link', 'parentfield', '=', 'links']],
-                                                      erp_fields=['name', 'link_name', 'parent', 'parenttype'])
+                                                      erp_fields=['name', 'link_name', 'parent', 'parenttype'],
+                                                      parent="Contact")
 
 
         customer = erp_client.query(ERPCustomer).first(filters=[['Customer', 'name', '=', link['link_name']]])

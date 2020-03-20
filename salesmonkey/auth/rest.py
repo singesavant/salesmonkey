@@ -18,19 +18,174 @@ from .schemas import UserSchema
 
 from .models import User
 from flask_login import login_user
+from flask_login import login_required
 
 from ..erpnext import erp_client
 from erpnext_client.documents import (
     ERPUser,
     ERPCustomer,
     ERPContact,
+    ERPAddress,
     ERPDynamicLink
 )
 
+from erpnext_client.schemas import (
+    ERPAddressSchema,
+    ERPContactSchema
+)
 
 import logging
 
 LOGGER = logging.getLogger(__name__)
+
+@marshal_with(ERPAddressSchema)
+class CustomerPostalAddress(MethodResource):
+    """
+    Customer Address management
+    """
+
+    def _get_customer_postal_address(self, customer_name):
+        link = erp_client.query(ERPDynamicLink).first(filters=[['Dynamic Link', 'parenttype', '=', 'Address'],
+                                                               ['Dynamic Link', 'link_name', '=', customer_name],
+                                                               ['Dynamic Link', 'parentfield', '=', 'links']],
+                                                      erp_fields=['parent'],
+                                                      parent="Address")
+        address = erp_client.query(ERPAddress).get(name=link['parent'])
+
+        return address
+
+
+    @login_required
+    def get(self, **kwargs):
+        address = {}
+
+        customer = session.get('customer')
+
+        try:
+            address = self._get_customer_postal_address(customer['name'])
+        except ERPAddress.DoesNotExist:
+            pass
+
+        return address
+
+    @login_required
+    @marshal_with(None, code=201)
+    @use_kwargs(ERPAddressSchema)
+    def post(self, **kwargs):
+        customer = session.get('customer')
+        contact = session.get('contact')
+
+        LOGGER.debug(customer)
+
+        data = {
+            'address_type': 'Shipping',
+            'address_title': '{0}'.format(contact['name']),
+            'address_line2': ''
+        }
+
+        kwargs.update(data)
+
+        # Try to fetch existing Address
+        try:
+            existing_address = self._get_customer_postal_address(customer['name'])
+            LOGGER.debug("we already have an address")
+
+            existing_address.update(kwargs)
+
+            LOGGER.debug(existing_address)
+            erp_client.query(ERPAddress).update(name=existing_address['name'], data=existing_address)
+
+        except ERPAddress.DoesNotExist:
+            # Create a new address object and link it
+            address = erp_client.query(ERPAddress).create(data=kwargs)
+
+            LOGGER.debug("Address <{0}> created.".format(address['name']))
+
+            link = erp_client.query(ERPDynamicLink).create(data={'parent': address['name'],
+                                                                 'parenttype': 'Address',
+                                                                 'parentfield': 'links',
+                                                                 'link_doctype': 'Customer',
+                                                                 'link_name': customer['name']})
+
+            LOGGER.debug("Address successfully linked to Customer <{0}>.".format(link['name']))
+
+        return True
+
+
+api_v1.register('/customer/address', CustomerPostalAddress)
+
+@marshal_with(ERPContactSchema)
+class CustomerContact(MethodResource):
+    """
+    Handle User Address management
+    """
+    def _get_customer_contact(self, customer_name):
+        link = erp_client.query(ERPDynamicLink).first(filters=[['Dynamic Link', 'parenttype', '=', 'Contact'],
+                                                               ['Dynamic Link', 'link_name', '=', customer_name],
+                                                               ['Dynamic Link', 'parentfield', '=', 'links']],
+                                                      erp_fields=['parent'],
+                                                      parent="Contact")
+
+        contact = erp_client.query(ERPContact).get(name=link['parent'])
+
+        return contact
+
+
+    @login_required
+    def get(self, **kwargs):
+        contact = {}
+
+        customer = session.get('customer')
+
+        try:
+            contact = self._get_customer_contact(customer['name'])
+        except ERPAddress.DoesNotExist:
+            pass
+
+        return contact
+
+    @login_required
+    @marshal_with(None, code=201)
+    @use_kwargs(ERPContactSchema)
+    def post(self, **kwargs):
+        customer = session.get('customer')
+
+        LOGGER.debug(customer)
+
+        data = {
+        }
+
+        kwargs.update(data)
+
+        # Try to fetch existing Contact
+        try:
+            existing_contact = self._get_customer_contact(customer['name'])
+            LOGGER.debug("we already have a contact")
+
+            existing_contact.update(kwargs)
+
+            LOGGER.debug(existing_contact)
+            erp_client.query(ERPContact).update(name=existing_contact['name'], data=existing_contact)
+
+        except ERPContact.DoesNotExist:
+            # Create a new contact object and link it
+            contact = erp_client.query(ERPContact).create(data=kwargs)
+
+            LOGGER.debug("Contact <{0}> created.".format(contact['name']))
+
+            link = erp_client.query(ERPDynamicLink).create(data={'parent': contact['name'],
+                                                                 'parenttype': 'Contact',
+                                                                 'parentfield': 'links',
+                                                                 'link_doctype': 'Customer',
+                                                                 'link_name': customer['name']})
+
+            LOGGER.debug("Contact successfully linked to Customer <{0}>.".format(link['name']))
+
+        return True
+
+
+
+api_v1.register('/customer/contact', CustomerContact)
 
 @marshal_with(UserSchema)
 class AuthWith(MethodResource):

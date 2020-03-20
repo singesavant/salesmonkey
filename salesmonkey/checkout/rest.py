@@ -103,7 +103,7 @@ class SumUpClient:
         return current_checkout
 
     def get_checkout(self, checkout_id):
-        r = requests.get("{0}/checkouts/{1}".format(self.API_BASE_URL, current_checkout['id']),
+        r = requests.get("{0}/checkouts/{1}".format(self.API_BASE_URL, checkout_id),
                           headers={'Authorization': 'Bearer {0}'.format(self.token)})
         if r.ok:
             return r.json()
@@ -123,7 +123,7 @@ class SalesOrderSumUpPayment(Step):
                                            "{0}-{1}".format(self.sales_order['name'], str(random.randint(0, 1000))),
                                            "Website - {0}".format(self.sales_order['title']))
 
-    def validate_as_payed(self):
+    def validate(self):
         checkout = self.client.get_checkout("CHECKOUT ID")
         if checkout['status'] == 'PAID':
             return True
@@ -131,11 +131,23 @@ class SalesOrderSumUpPayment(Step):
             raise InvalidData('Payment not accepted')
 
 
+class SalesOrderAddress(Step):
+    def __init__(self, sales_order):
+        self.sales_order = sales_order
+        self.client = SumUpClient(app.config["SUMUP_CLIENT_ID"],
+                                  app.config["SUMUP_CLIENT_SECRET"],
+                                  app.config["SUMUP_MERCHANT_ID"])
+
+    def validate(self):
+        return True
+
+
 class SalesOrderCheckoutManager(ProcessManager):
     def __init__(self, sales_order):
         self.sales_order = sales_order
 
     def __iter__(self):
+        yield SalesOrderAddress(self.sales_order)
         yield SalesOrderSumUpPayment(self.sales_order)
 
 
@@ -156,6 +168,9 @@ class SalesOrderCheckout(MethodResource):
 
         manager = SalesOrderCheckoutManager(sales_order)
         next_step = manager.get_next_step()
+
+        LOGGER.debug(next_step)
+
         sumup_info = next_step.create_sumup_checkout()
 
         if sumup_info == None:
