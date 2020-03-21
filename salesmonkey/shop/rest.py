@@ -1,5 +1,6 @@
 import math
 import requests
+from salesmonkey import app
 from werkzeug.exceptions import NotFound, BadRequest
 
 from flask_apispec import (
@@ -85,17 +86,62 @@ class CartDetail(MethodResource):
         # Place SO
         # FIXME OrderNumberGenerator not used?
         num_gen = OrderNumberGenerator()
-        response = erp_client.create_sales_order(customer=session['customer']['name'],
-                                                 order_type="Shopping Cart",
-                                                 naming_series="SO-WEB-.YY.MM.DD.-.###",
-                                                 title="Commande Web {0} {1}".format(current_user.first_name,
-                                                                                     current_user.last_name),
-                                                 items=items)
+
+        # Delete previous shopping cart if prevent
+        try:
+            current_sales_order = erp_client.query(ERPSalesOrder).first(erp_fields=["name"],
+                                                                        filters=[
+                                                                            ["Sales Order", "order_type", "=", "Shopping Cart"],
+                                                                            ["Sales Order", "docstatus", "=", "0"],
+                                                                            ["Sales Order", "customer", "=", session['customer']['name']]
+                                                                        ])
+
+            response = erp_client.query(ERPSalesOrder).update(name=current_sales_order['name'], data={'items': items})
+
+        except ERPSalesOrder.DoesNotExist:
+            # No previous SO, create a new one
+
+            response = erp_client.create_resource("Sales Order",
+                                                  data={'customer': session['customer']['name'],
+                                                        'title': "Commande Web {0} {1}".format(current_user.first_name,
+                                                                                               current_user.last_name),
+                                                        'shipping_rule': app.config['ERPNEXT_SHIPPING_RULE'],
+                                                        'naming_series': "SO-WEB-.YY.MM.DD.-.###",
+                                                        'order_type': "Shopping Cart",
+                                                        'items': items,
+                                                        'taxes': []})
+
 
         if response.ok:
             # Empty Cart once SO has been placed
-            cart.clear()
-            sales_order = response.json()['data']
+            # XXX cart.clear()
+            sales_order, errors = ERPSalesOrderSchema(strict=True).load(data=response.json()['data'])
+
+            LOGGER.debug(sales_order)
+            # FIXME HARDCODED!
+            shipping_cost = 0
+            if int(sales_order['amount_total']) < 58:
+                shipping_cost = 5
+
+
+            response = erp_client.update_resource("Sales Order",
+                                                  resource_name=sales_order['name'],
+                                                  data={'taxes': [{
+                                                      "charge_type": "On Net Total",
+		                                              "account_head": "4457 - TVA collectée - LSS",
+		                                              "description": "TVA 20%",
+                                                      "included_in_print_rate": "1",
+                                                      "rate": "20"
+	                                              },{
+                                                      "charge_type": "Actual",
+                                                      "account_head": "Frais de Transport - LSS",
+                                                      "description": "Livraison",
+                                                      "rate": "0",
+                                                      "tax_amount": shipping_cost
+                                                  }]})
+
+            sales_order, errors = ERPSalesOrderSchema(strict=True).load(data=response.json()['data'])
+
             return sales_order
         else:
             response.raise_for_error()
@@ -135,8 +181,8 @@ class ItemDetail(MethodResource):
     def get(self, name):
         try:
             item = erp_client.query(ERPItem).get(name)
+
             # Fetch the variants
-            LOGGER.debug(item['has_variants'])
             if item['has_variants'] is True:
                 LOGGER.debug("Fetching variants for {0}".format(item['code']))
                 item_variants = erp_client.query(ERPItem).list(erp_fields=["item_code", "name", "standard_rate", "website_image", "website_warehouse"],

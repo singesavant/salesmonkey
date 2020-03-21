@@ -17,7 +17,7 @@ from flask_apispec import (
 from .schemas import UserSchema
 
 from .models import User
-from flask_login import login_user
+from flask_login import login_user, logout_user
 from flask_login import login_required
 
 from ..erpnext import erp_client
@@ -186,6 +186,15 @@ class CustomerContact(MethodResource):
 
 
 api_v1.register('/customer/contact', CustomerContact)
+
+class LogoutManager(MethodResource):
+    @login_required
+    def get(self):
+        logout_user()
+
+        return True
+
+api_v1.register('/auth/logout', LogoutManager)
 
 @marshal_with(UserSchema)
 class AuthWith(MethodResource):

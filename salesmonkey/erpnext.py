@@ -16,5 +16,4 @@ if not erp_client.login():
 else:
     LOGGER.info("Login OK on ERP at {0} using API KEY {1}".format(erp_client.host,
                                                                   erp_client.api_key))
-    LOGGER.debug(erp_client.get_credentials())
 

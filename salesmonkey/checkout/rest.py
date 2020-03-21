@@ -112,6 +112,8 @@ class SumUpClient:
 
 
 class SalesOrderSumUpPayment(Step):
+    def __str__(self): return 'payment'
+
     def __init__(self, sales_order):
         self.sales_order = sales_order
         self.client = SumUpClient(app.config["SUMUP_CLIENT_ID"],
@@ -134,9 +136,6 @@ class SalesOrderSumUpPayment(Step):
 class SalesOrderAddress(Step):
     def __init__(self, sales_order):
         self.sales_order = sales_order
-        self.client = SumUpClient(app.config["SUMUP_CLIENT_ID"],
-                                  app.config["SUMUP_CLIENT_SECRET"],
-                                  app.config["SUMUP_MERCHANT_ID"])
 
     def validate(self):
         return True
@@ -147,31 +146,34 @@ class SalesOrderCheckoutManager(ProcessManager):
         self.sales_order = sales_order
 
     def __iter__(self):
-        yield SalesOrderAddress(self.sales_order)
         yield SalesOrderSumUpPayment(self.sales_order)
 
 
-class SalesOrderCheckout(MethodResource):
+class SalesOrderPayment(MethodResource):
+    def _get_shopping_cart_so_from_erp(self, so_name, customer_name):
+            return erp_client.query(ERPSalesOrder).get(so_name,
+                                                       fields='["name", "title", "grand_total", "customer", "items", "transaction_date"]',
+                                                       filters=[["Sales Order", "docstatus", "=", "0"],
+                                                                ["Sales Order", "Customer", "=", customer_name],
+                                                                ["Sales Order", "Order Type", "=", "Shopping Cart"],
+                                                                ["Sales Order", "status", "!=", "Cancelled"]])
     @login_required
     def get(self, name):
         customer = session.get('customer', None)
+
         if not customer:
             raise NotFound
 
         try:
-            sales_order = erp_client.query(ERPSalesOrder).get(name,
-                                                              fields='["name", "title", "grand_total", "customer", "items", "transaction_date"]',
-                                                              filters=[["Sales Order", "Customer", "=", customer['name']],
-                                                                       ["Sales Order", "status", "!=", "Cancelled"]])
+            sales_order = self._get_shopping_cart_so_from_erp(name, customer['name'])
         except ERPSalesOrder.DoesNotExist:
             raise NotFound
 
         manager = SalesOrderCheckoutManager(sales_order)
-        next_step = manager.get_next_step()
 
-        LOGGER.debug(next_step)
+        payment_step = manager['payment']
 
-        sumup_info = next_step.create_sumup_checkout()
+        sumup_info = payment_step.create_sumup_checkout()
 
         if sumup_info == None:
             raise BadRequest
@@ -185,6 +187,8 @@ class SalesOrderCheckout(MethodResource):
             raise NotFound
 
         try:
+            sales_order = self._get_shopping_cart_so_from_erp(customer['name'])
+        except ERPSalesOrder.DoesNotExist:
             sales_order = erp_client.query(ERPSalesOrder).get(name,
                                                               fields='["name", "title", "grand_total", "customer", "items", "transaction_date"]',
                                                               filters=[["Sales Order", "Customer", "=", customer['name']],
@@ -194,5 +198,5 @@ class SalesOrderCheckout(MethodResource):
 
 
 
-api_v1.register('/shop/orders/<name>/checkout', SalesOrderCheckout)
+api_v1.register('/shop/orders/<name>/payment', SalesOrderPayment)
 
