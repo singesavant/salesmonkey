@@ -3,10 +3,21 @@ from flask import session
 import satchless.item
 import satchless.cart
 
+from erpnext_client.documents import (
+    ERPItem,
+    ERPBin
+)
+
 from salesmonkey import ma
 
+from .erpnext import erp_client
 
-class Item(satchless.item.Item):
+import logging
+
+LOGGER = logging.getLogger(__name__)
+
+
+class Item(satchless.item.StockedItem):
     def __init__(self, code, name, price=0):
         self.code = code
         self.name = name
@@ -17,6 +28,16 @@ class Item(satchless.item.Item):
 
     def get_price(self):
         return self.price
+
+    def get_stock(self):
+        item = erp_client.query(ERPItem).get(self.code)
+
+        bin = erp_client.query(ERPBin).first(erp_fields=["projected_qty"],
+                                             filters=[
+                                                 ["Bin", "item_code", "=", item['code']],
+                                                 ["Bin", "warehouse", "=", item['website_warehouse']]
+                                             ])
+        return max(bin['projected_qty'], 0)
 
 
 class ItemSchema(ma.Schema):

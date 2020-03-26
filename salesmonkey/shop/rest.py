@@ -1,6 +1,9 @@
 import math
 import requests
+from random import randint
 from salesmonkey import app
+import satchless
+from datetime import date
 from werkzeug.exceptions import NotFound, BadRequest
 
 from flask_apispec import (
@@ -20,16 +23,20 @@ from webargs.flaskparser import use_args
 from erpnext_client.schemas import (
     ERPItemSchema,
     ERPSalesOrderSchema,
-    ERPSalesOrderItemSchema
+    ERPSalesOrderItemSchema,
+    ERPCustomerSchema
 )
+
 from erpnext_client.documents import (
     ERPItem,
+    ERPItemPrice,
     ERPSalesOrder,
     ERPUser,
     ERPBin,
     ERPCustomer,
     ERPContact,
-    ERPDynamicLink
+    ERPDynamicLink,
+    ERPJournalEntry
 )
 
 from ..schemas import (
@@ -48,6 +55,71 @@ from ..utils import OrderNumberGenerator
 import logging
 
 LOGGER = logging.getLogger(__name__)
+
+class GiveAway(MethodResource):
+    """
+    Offer 5% to partner
+    """
+    @marshal_with(ERPCustomerSchema(many=True))
+    def get(self, name):
+        pro_customers = erp_client.query(ERPCustomer).list(erp_fields=['*'],
+                                                           filters=[
+                                                               ["Customer", "customer_group", "in", "Professionnel, Bar"],
+                                                           ],
+                                                           page_length=1000)
+
+        return pro_customers
+
+    @use_kwargs({'partner_name': fields.Str(required=True)})
+    @marshal_with(None, code=204)
+    def post(self, name, partner_name):
+        sales_order = None
+
+        try:
+            sales_order = erp_client.query(ERPSalesOrder).get(name)
+        except ERPSalesOrder.DoesNotExist:
+            raise NotFound
+
+        # First, check if we don't already have a giveaway for this transaction
+        try:
+            jv = erp_client.query(ERPJournalEntry).first(filters=[["Journal Entry", "voucher_type", "=", "Credit Note"],
+                                                                  ["Journal Entry", "cheque_no", "=", sales_order['name']]])
+
+            raise BadRequest("Giveaway already made, cheater!")
+        except ERPJournalEntry.DoesNotExist:
+            pass
+
+        five_pc = float(sales_order['total']) * 5 / 100.0
+
+        response = erp_client.create_resource("Journal Entry",
+                                              data={'docstatus': 1,
+                                                    'voucher_type': "Credit Note",
+                                                    'title': "CORONA {0} to {1}".format(sales_order['name'], partner_name),
+                                                    'posting_date': "{0}".format(date.today()),
+                                                    'company': 'Le Singe Savant',
+                                                    'cheque_no': sales_order['name'],
+                                                    'cheque_date': "{0}".format(sales_order['date']),
+                                                    'user_remark': sales_order['customer'],
+                                                    'accounts': [
+                                                        {
+                                                            'account': "411 - Clients - LSS",
+                                                            'party_type': "Customer",
+                                                            'party': partner_name,
+                                                            'debit_in_account_currency': five_pc
+                                                        },
+                                                        {
+                                                            'account': "70 - Chiffre d'affaire - LSS",
+                                                            'credit_in_account_currency': five_pc,
+                                                        }
+
+                                                    ]
+                                              })
+
+
+
+
+api_v1.register('/shop/orders/<name>/giveaway', GiveAway)
+
 
 class CartDetail(MethodResource):
     """
@@ -92,7 +164,7 @@ class CartDetail(MethodResource):
             current_sales_order = erp_client.query(ERPSalesOrder).first(erp_fields=["name"],
                                                                         filters=[
                                                                             ["Sales Order", "order_type", "=", "Shopping Cart"],
-                                                                            ["Sales Order", "docstatus", "=", "0"],
+                                                                            ["Sales Order", "status", "=", "Draft"],
                                                                             ["Sales Order", "customer", "=", session['customer']['name']]
                                                                         ])
 
@@ -117,10 +189,9 @@ class CartDetail(MethodResource):
             # XXX cart.clear()
             sales_order, errors = ERPSalesOrderSchema(strict=True).load(data=response.json()['data'])
 
-            LOGGER.debug(sales_order)
             # FIXME HARDCODED!
             shipping_cost = 0
-            if int(sales_order['amount_total']) < 58:
+            if int(sales_order['amount_total']) < 50:
                 shipping_cost = 5
 
 
@@ -163,7 +234,6 @@ class ItemList(MethodResource):
                                                         ["Item", "is_sales_item", "=", True],
                                                         ["Item", "disabled", "=", False],
                                                         ["Item", "item_group", "=", item_group]])
-
         return items
 
 api_v1.register('/shop/items/', ItemList)
@@ -204,6 +274,18 @@ class ItemDetail(MethodResource):
                     item_variant['orderable_qty'] = max(bin['projected_qty'], 0)
                     del item_variant['website_warehouse']
 
+
+                    # Get price for current customer
+                    # FIXME: Should lookup current user price group
+                    try:
+                        variant_price = erp_client.query(ERPItemPrice).first(erp_fields=["price_list_rate"],
+                                                                             filters=[["Item Price", "item_code", "=", item_variant['code']],
+                                                                                      ["Item Price", "selling", "=", "1"],
+                                                                                      ["Item Price", "price_list", "=", "Tarifs standards TTC"]])
+
+                        item_variant['price'] = variant_price['price_list_rate']
+                    except ERPItemPrice.DoesNotExist:
+                        LOGGER.debug("No price list for Item <{0}>".format(item_variant['code']))
             else:
                 # Fetch item qtty
                 pass
@@ -223,6 +305,18 @@ class ItemDetail(MethodResource):
         """
         try:
             item = erp_client.query(ERPItem).get(name)
+
+            # Get price for current customer
+            # FIXME: Should lookup current user price group
+            try:
+                variant_price = erp_client.query(ERPItemPrice).first(erp_fields=["price_list_rate"],
+                                                                     filters=[["Item Price", "item_code", "=", item['code']],
+                                                                              ["Item Price", "selling", "=", "1"],
+                                                                              ["Item Price", "price_list", "=", "Tarifs standards TTC"]])
+                item['price'] = variant_price['price_list_rate']
+            except ERPItemPrice.DoesNotExist:
+                LOGGER.debug("No price list for Item <{0}>".format(item_variant['code']))
+
         except ERPItem.DoesNotExist:
             raise NotFound
 
@@ -233,10 +327,16 @@ class ItemDetail(MethodResource):
 
         quantity = max(0, int(kwargs['quantity']))
 
-        # FIXME Make sure we don't go over orderable_qty
+        product = Item(item['code'], item['name'], item['price'])
 
-        cart.add(Item(item['code'], item['name'], item['price']),
-                 quantity=quantity, replace=False)
+        try:
+            product.check_quantity(quantity)
+            cart.add(product, quantity=quantity, replace=False)
+        except satchless.item.InsufficientStock as e:
+            quantity = e.item.get_stock()
+            cart.add(product, quantity=quantity, replace=True)
+
+
 
 
 
