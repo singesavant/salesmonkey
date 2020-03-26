@@ -279,6 +279,7 @@ class AuthWith(MethodResource):
             customer = erp_client.query(ERPCustomer).create(data={'customer_name': "{0} {1}".format(contact['first_name'],
                                                                                                     contact['last_name']),
                                                                   'customer_type': 'Individual',
+                                                                  'primary_address': "",
                                                                   'language': 'fr',
                                                                   'customer_group': 'Particulier',
                                                                   'territory': 'France'})
