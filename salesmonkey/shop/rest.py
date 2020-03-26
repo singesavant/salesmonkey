@@ -60,6 +60,7 @@ class GiveAway(MethodResource):
     """
     Offer 5% to partner
     """
+    @login_required
     @marshal_with(ERPCustomerSchema(many=True))
     def get(self, name):
         pro_customers = erp_client.query(ERPCustomer).list(erp_fields=['*'],
@@ -70,6 +71,7 @@ class GiveAway(MethodResource):
 
         return pro_customers
 
+    @login_required
     @use_kwargs({'partner_name': fields.Str(required=True)})
     @marshal_with(None, code=204)
     def post(self, name, partner_name):
