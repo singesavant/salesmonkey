@@ -280,7 +280,7 @@ class AuthWith(MethodResource):
                                                                                                     contact['last_name']),
                                                                   'customer_type': 'Individual',
                                                                   'language': 'fr',
-                                                                  'customer_group': 'Individual',
+                                                                  'customer_group': 'Particulier',
                                                                   'territory': 'France'})
 
             # Create link between Contact and Customer
