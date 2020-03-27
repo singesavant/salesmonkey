@@ -281,10 +281,20 @@ class AuthWith(MethodResource):
                                                          erp_fields=['name', 'first_name', 'last_name'])
             LOGGER.debug("Found Contact <{0}> on ERP".format(contact['name']))
         except ERPContact.DoesNotExist:
-            contact = erp_client.query(ERPContact).create(data={'email_id': aUser.email,
-                                                                'email': aUser.email,
-                                                                'first_name': aUser.first_name,
+            LOGGER.debug("Creating New contact for <{0}>".format(aUser.username))
+
+            contact = erp_client.query(ERPContact).create(data={'first_name': aUser.first_name,
                                                                 'last_name': aUser.last_name})
+
+            contact_email_data = {'docstatus': 0,
+                                  'parent': contact['name'],
+                                  'parenttype': 'Contact',
+                                  'email_id': aUser.email,
+                                  'is_primary': True,
+                                  'parentfield': 'email_ids',
+                                  'doctype': 'Contact Email'}
+
+            contact_email = erp_client.query(ERPContactEmail).create(data=contact_email_data)
 
             LOGGER.debug("Created Contact <{0}> on ERP".format(contact['name']))
 
