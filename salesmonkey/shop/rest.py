@@ -110,7 +110,7 @@ class GiveAway(MethodResource):
                                                             'debit_in_account_currency': five_pc
                                                         },
                                                         {
-                                                            'account': "70 - Chiffre d'affaire - LSS",
+                                                            'account': "709700 - Rabais remises et ristournes sur ventes de marchandises - LSS",
                                                             'credit_in_account_currency': five_pc,
                                                         }
 
