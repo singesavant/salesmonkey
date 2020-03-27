@@ -26,6 +26,7 @@ from erpnext_client.documents import (
     ERPCustomer,
     ERPContact,
     ERPContactPhone,
+    ERPContactEmail,
     ERPAddress,
     ERPDynamicLink
 )
