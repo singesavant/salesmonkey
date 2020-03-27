@@ -285,6 +285,8 @@ class AuthWith(MethodResource):
             LOGGER.debug("Creating New contact for <{0}>".format(aUser.username))
 
             contact = erp_client.query(ERPContact).create(data={'first_name': aUser.first_name,
+                                                                'user': aUser.username,
+                                                                'email_id': aUser.email,
                                                                 'last_name': aUser.last_name})
 
             contact_email_data = {'docstatus': 0,
@@ -296,6 +298,8 @@ class AuthWith(MethodResource):
                                   'doctype': 'Contact Email'}
 
             contact_email = erp_client.query(ERPContactEmail).create(data=contact_email_data)
+
+            contact['email'] = contact_email['email']
 
             LOGGER.debug("Created Contact <{0}> on ERP".format(contact['name']))
 
