@@ -25,6 +25,7 @@ from erpnext_client.documents import (
     ERPUser,
     ERPCustomer,
     ERPContact,
+    ERPContactPhone,
     ERPAddress,
     ERPDynamicLink
 )
@@ -150,22 +151,46 @@ class CustomerContact(MethodResource):
     def post(self, **kwargs):
         customer = session.get('customer')
 
-        LOGGER.debug(customer)
-
-        data = {
-        }
-
-        kwargs.update(data)
-
         # Try to fetch existing Contact
         try:
             existing_contact = self._get_customer_contact(customer['name'])
             LOGGER.debug("we already have a contact")
 
-            existing_contact.update(kwargs)
+            existing_contact['first_name'] = kwargs['first_name']
+            existing_contact['last_name'] = kwargs['last_name']
 
-            LOGGER.debug(existing_contact)
+            contact_phone = {
+                'phone': kwargs['mobile_no'],
+                'is_primary_mobile_no': 1
+            }
+
+            if len(existing_contact['phone_nos']) > 0:
+                for phone_no in existing_contact['phone_nos']:
+                    if phone_no['is_primary_mobile_no'] is True:
+                        LOGGER.debug("We have a phone!")
+                        phone_no.update(contact_phone)
+
+            else:
+                LOGGER.debug("NEW PHONE")
+                contact_phone_data = {'docstatus': 0,
+                                      'parent': existing_contact['name'],
+                                      'parenttype': 'Contact',
+                                      'phone': kwargs['mobile_no'],
+                                      'is_primary_mobile_no': True,
+                                      'parentfield': 'phone_nos',
+                                      'doctype': 'Contact Phone'}
+
+                contact_phone = erp_client.query(ERPContactPhone).create(data=contact_phone_data)
+                existing_contact['phone_nos'].append(contact_phone)
+
             erp_client.query(ERPContact).update(name=existing_contact['name'], data=existing_contact)
+
+
+
+
+
+
+
 
         except ERPContact.DoesNotExist:
             # Create a new contact object and link it
