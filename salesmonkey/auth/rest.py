@@ -160,6 +160,10 @@ class CustomerContact(MethodResource):
             existing_contact['first_name'] = kwargs['first_name']
             existing_contact['last_name'] = kwargs['last_name']
 
+            # We don't want to update email fields
+            del existing_contact['email_ids']
+            del existing_contact['email']
+
             contact_phone = {
                 'phone': kwargs['mobile_no'],
                 'is_primary_mobile_no': 1
@@ -184,14 +188,8 @@ class CustomerContact(MethodResource):
                 contact_phone = erp_client.query(ERPContactPhone).create(data=contact_phone_data)
                 existing_contact['phone_nos'].append(contact_phone)
 
+            # Trigger update !
             erp_client.query(ERPContact).update(name=existing_contact['name'], data=existing_contact)
-
-
-
-
-
-
-
 
         except ERPContact.DoesNotExist:
             # Create a new contact object and link it
