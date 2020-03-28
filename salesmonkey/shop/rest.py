@@ -2,6 +2,7 @@ import math
 import requests
 from random import randint
 from salesmonkey import app
+from salesmonkey import cache
 import satchless
 from datetime import date
 from werkzeug.exceptions import NotFound, BadRequest
@@ -62,10 +63,11 @@ class GiveAway(MethodResource):
     """
     @login_required
     @marshal_with(ERPCustomerSchema(many=True))
+    @cache.memoize(timeout=10)
     def get(self, name):
         pro_customers = erp_client.query(ERPCustomer).list(erp_fields=['*'],
                                                            filters=[
-                                                               ["Customer", "customer_group", "in", "Professionnel, Bar"],
+                                                               ["Customer", "customer_group", "in", "Restaurant, Bar"],
                                                            ],
                                                            page_length=1000)
 
@@ -226,9 +228,9 @@ api_v1.register('/shop/cart/', CartDetail)
 @marshal_with(ERPItemSchema(many=True))
 class ItemList(MethodResource):
     @use_kwargs({'item_group': fields.Str()})
+    @cache.memoize(timeout=5)
     def get(self, **kwargs):
         item_group = kwargs.get('item_group', None)
-        print("coinnnn")
 
         # Items
         items = erp_client.query(ERPItem).list(erp_fields=["name", "description", "has_variants", "item_code", "web_long_description", "standard_rate", "thumbnail"],
@@ -236,6 +238,7 @@ class ItemList(MethodResource):
                                                         ["Item", "is_sales_item", "=", True],
                                                         ["Item", "disabled", "=", False],
                                                         ["Item", "item_group", "=", item_group]])
+
         return items
 
 api_v1.register('/shop/items/', ItemList)
@@ -250,6 +253,7 @@ class ShopItemSchema(ERPItemSchema):
 
 class ItemDetail(MethodResource):
     @marshal_with(ShopItemSchema)
+    @cache.memoize(timeout=10)
     def get(self, name):
         try:
             item = erp_client.query(ERPItem).get(name)

@@ -21,6 +21,8 @@ from erpnext_client.documents import (
 from ..erpnext import erp_client
 from ..rest import api_v1
 
+from salesmonkey import cache
+
 
 @marshal_with(ERPItemSchema(many=True))
 class BeerList(MethodResource):
@@ -28,8 +30,9 @@ class BeerList(MethodResource):
     Return a list of beers
     """
     @use_kwargs({'item_group': fields.Str()})
-    def get(self, **kwargs):
-        item_group = kwargs.get('item_group', "Bières du Singe")
+    @cache.memoize(timeout=60)
+    def get(self, item_group=None):
+        item_group = item_group or "Bières du Singe"
 
         items = erp_client.query(ERPItem).list(erp_fields=["name", "description", "disabled", "item_code", "website_image", "thumbnail"],
                                                filters=[["Item", "show_in_website", "=", "1"],
@@ -53,15 +56,10 @@ class BeerDetails(MethodResource):
     """
     Return details of a beer
     """
-    @use_kwargs({'slug': fields.Str()})
-    def get(self, **kwargs):
-        beer_slug = kwargs.get('slug', None)
-
-        if beer_slug is None:
-            raise NotFound
-
+    @cache.cached(timeout=60)
+    def get(self, slug):
         try:
-            item = erp_client.query(ERPItem).get(beer_slug,
+            item = erp_client.query(ERPItem).get(slug,
                                                  fields=["name", "slideshow", "description", "disabled", "item_code", "web_long_description", "website_specifications", "thumbnail", "website_image"],
                                                  filters=[["Item", "show_in_website", "=", "1"],
                                                           ["Item", "is_sales_item", "=", True]])

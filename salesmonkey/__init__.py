@@ -5,18 +5,24 @@ from flask_cors import CORS
 from flask_marshmallow import Marshmallow
 from flask_session import Session
 
+from .utils import ResourceCache
+
 coloredlogs.install(level='DEBUG')
 
 app = Flask("salesmonkey", instance_relative_config=True)
 
 CONFIG = {
-    'SESSION_TYPE': 'redis'
+    'SESSION_TYPE': 'redis',
+    "CACHE_TYPE": "simple", # Flask-Caching related configs
+    "CACHE_DEFAULT_TIMEOUT": 300
 }
 app.config.update(CONFIG)
 app.config.from_pyfile('settings.cfg')
 
 
 ma = Marshmallow(app)
+
+cache = ResourceCache(config={'CACHE_TYPE': 'simple'})
 
 Session(app)
 
@@ -40,3 +46,4 @@ from .erpnext import erp_client
 api_specs.init_app(app)
 api_v1.init_app(app)
 login_manager.init_app(app)
+cache.init_app(app)
