@@ -81,8 +81,7 @@ class CustomerPostalAddress(MethodResource):
 
         data = {
             'address_type': 'Shipping',
-            'address_title': '{0}'.format(contact['name']),
-            'address_line2': ''
+            'address_title': '{0}'.format(contact['name'])
         }
 
         kwargs.update(data)
