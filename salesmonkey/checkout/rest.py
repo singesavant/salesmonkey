@@ -126,9 +126,8 @@ class SumUpClient:
                 if existing_checkout['status'] == 'PENDING':
                     if existing_checkout['amount'] != amount:
                         # Old Checkout, delete it and recreate !
-                        r = requests.delete("{0}/checkouts".format(self.API_BASE_URL),
-                                            headers={'Authorization': 'Bearer {0}'.format(self.token)},
-                                            json=json_payload)
+                        r = requests.delete("{0}/checkouts/{1}".format(self.API_BASE_URL, reference)
+                                            headers={'Authorization': 'Bearer {0}'.format(self.token))
 
                         # and make a new one
                         r = requests.post("{0}/checkouts".format(self.API_BASE_URL),
