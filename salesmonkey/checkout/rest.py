@@ -123,6 +123,18 @@ class SumUpClient:
             LOGGER.debug("A checkout already exist for: {0}".format(reference))
             try:
                 existing_checkout = self.get_checkout_by_reference(reference=reference)
+                if existing_checkout['status'] == 'PENDING':
+                    if existing_checkout['amount'] != amount:
+                        # Old Checkout, delete it and recreate !
+                        r = requests.delete("{0}/checkouts".format(self.API_BASE_URL),
+                                            headers={'Authorization': 'Bearer {0}'.format(self.token)},
+                                            json=json_payload)
+
+                        # and make a new one
+                        r = requests.post("{0}/checkouts".format(self.API_BASE_URL),
+                                          headers={'Authorization': 'Bearer {0}'.format(self.token)},
+                                          json=json_payload)
+
             except NotFound:
                 # Already paid ?
                 return {"status": "ALREADY_PAID"}
