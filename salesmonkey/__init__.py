@@ -7,6 +7,9 @@ from flask_session import Session
 
 from .utils import ResourceCache
 
+import sentry_sdk
+from sentry_sdk.integrations.flask import FlaskIntegration
+
 app = Flask("salesmonkey", instance_relative_config=True)
 
 CONFIG = {
@@ -15,6 +18,16 @@ CONFIG = {
 
 app.config.update(CONFIG)
 app.config.from_pyfile('settings.cfg')
+
+if 'SENTRY_DSN' in app.config:
+    sentry_sdk.init(
+        dsn=app.config['SENTRY_DSN'],
+        integrations=[FlaskIntegration()]
+    )
+    print("yeah")
+else:
+    print("no sentry")
+
 
 if app.config['DEBUG']:
     coloredlogs.install(level='DEBUG')

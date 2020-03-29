@@ -8,6 +8,7 @@ from flask_apispec import (
     MethodResource
 )
 
+
 class Api:
     """
     Holds a version of the API with documentation and allows routes to

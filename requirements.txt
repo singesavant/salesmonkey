@@ -11,3 +11,4 @@ requests>=2.23.0
 satchless>=1.2.0
 requests-oauthlib>=1.3.0
 oauthlib
+sentry-sdk[flask]
