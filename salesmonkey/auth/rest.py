@@ -84,6 +84,7 @@ class CustomerPostalAddress(MethodResource):
             'address_title': '{0}'.format(contact['name'])
         }
 
+
         kwargs.update(data)
 
         # Try to fetch existing Address
@@ -98,6 +99,9 @@ class CustomerPostalAddress(MethodResource):
 
         except ERPAddress.DoesNotExist:
             # Create a new address object and link it
+            if not kwargs.has_key('address_line2'):
+                data['address_line2'] = ''
+
             address = erp_client.query(ERPAddress).create(data=kwargs)
 
             LOGGER.debug("Address <{0}> created.".format(address['name']))
