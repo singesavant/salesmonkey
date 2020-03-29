@@ -24,10 +24,6 @@ if 'SENTRY_DSN' in app.config:
         dsn=app.config['SENTRY_DSN'],
         integrations=[FlaskIntegration()]
     )
-    print("yeah")
-else:
-    print("no sentry")
-
 
 if app.config['DEBUG']:
     coloredlogs.install(level='DEBUG')
