@@ -7,22 +7,28 @@ from flask_session import Session
 
 from .utils import ResourceCache
 
-coloredlogs.install(level='DEBUG')
-
 app = Flask("salesmonkey", instance_relative_config=True)
 
 CONFIG = {
-    'SESSION_TYPE': 'redis',
-    "CACHE_TYPE": "simple", # Flask-Caching related configs
-    "CACHE_DEFAULT_TIMEOUT": 300
+    'SESSION_TYPE': 'redis'
 }
+
 app.config.update(CONFIG)
 app.config.from_pyfile('settings.cfg')
 
+if app.config['DEBUG']:
+    coloredlogs.install(level='DEBUG')
+else:
+    coloredlogs.install(level='WARN')
 
 ma = Marshmallow(app)
 
-cache = ResourceCache(config={'CACHE_TYPE': 'simple'})
+cache = ResourceCache()
+
+# config={'CACHE_TYPE': 'redis',
+#                                   'CACHE_REDIS_DB': app.config['FLASK_CACHE_REDIS_DB'],
+#                                   'CACHE_REDIS_HOST': app.config['FLASK_CACHE_REDIS_HOST']})
+
 
 Session(app)
 
