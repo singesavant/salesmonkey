@@ -18,9 +18,10 @@ LOGGER = logging.getLogger(__name__)
 
 
 class Item(satchless.item.StockedItem):
-    def __init__(self, code, name, price=0):
+    def __init__(self, code, name, warehouse, price=0):
         self.code = code
         self.name = name
+        self.warehouse = warehouse
         self.price = float(price)
 
     def __eq__(self, otherItem):
@@ -34,8 +35,8 @@ class Item(satchless.item.StockedItem):
 
         bin = erp_client.query(ERPBin).first(erp_fields=["projected_qty"],
                                              filters=[
-                                                 ["Bin", "item_code", "=", item['code']],
-                                                 ["Bin", "warehouse", "=", item['website_warehouse']]
+                                                 ["Bin", "item_code", "=", self.code],
+                                                 ["Bin", "warehouse", "=", self.warehouse]
                                              ])
         return max(bin['projected_qty'], 0)
 
@@ -43,12 +44,14 @@ class Item(satchless.item.StockedItem):
 class ItemSchema(ma.Schema):
     code = ma.String()
     name = ma.String()
+    warehouse = ma.String()
     price = ma.Float()
 
 
 class CartLineSchema(ma.Schema):
     product = ma.Nested(ItemSchema)
     quantity = ma.Integer()
+    warehouse = ma.String()
     line_price = ma.Method("get_line_price", deserialize="load_line_price")
 
     def get_line_price(self, obj):

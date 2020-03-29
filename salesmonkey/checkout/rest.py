@@ -33,7 +33,6 @@ from erpnext_client.documents import (
 
 from ..schemas import (
     CartSchema,
-    CartLineSchema,
     Cart, Item
 )
 

@@ -136,15 +136,13 @@ class CartDetail(MethodResource):
     @login_required
     @use_kwargs({'item_code': fields.Str()})
     @marshal_with(None, code=204)
-    def delete(self, **kwargs):
+    def delete(self, item_code):
         cart = Cart.from_session()
 
-        item_code = kwargs.get('item_code', None)
-        if item_code is None:
-            raise BadRequest("Missing item")
-
-        cart.add(Item(item_code, item_code, 0.0),
-                 quantity=0, replace=True)
+        for idx, cart_line in enumerate(cart):
+            if cart_line.product.code == item_code:
+                cart.add(cart_line.product, quantity=0, replace=True)
+                return
 
 
 
@@ -155,7 +153,8 @@ class CartDetail(MethodResource):
         if cart.count() <= 0:
             raise BadRequest("Empty cart")
 
-        items = [{'item_code': line.product.code, 'qty': line.quantity} for line in cart]
+
+        items = [{'item_code': line.product.code, 'qty': line.quantity, 'warehouse': line.product.warehouse} for line in cart]
 
         # FIXME We should check the quantities!
 
@@ -272,13 +271,17 @@ class ItemDetail(MethodResource):
 
                 # Fetch variant quantity
                 for item_variant in item_variants:
-                    bin = erp_client.query(ERPBin).first(erp_fields=["projected_qty"],
-                                                         filters=[
-                                                             ["Bin", "item_code", "=", item_variant['code']],
-                                                             ["Bin", "warehouse", "=", item['website_warehouse']]
-                                                         ])
-                    item_variant['orderable_qty'] = max(bin['projected_qty'], 0)
-                    del item_variant['website_warehouse']
+                    try:
+                        bin = erp_client.query(ERPBin).first(erp_fields=["name", "projected_qty"],
+                                                             filters=[
+                                                                 ["Bin", "item_code", "=", item_variant['code']],
+                                                                 ["Bin", "warehouse", "=", item_variant['website_warehouse']]
+                                                             ])
+
+                        item_variant['orderable_qty'] = max(bin['projected_qty'], 0)
+                    except ERPBin.DoesNotExist:
+                        # If we have no Bin, it means, there was no stock movement there so it equals to zero stock
+                        item_variant['orderable_qty'] = 0
 
 
                     # Get price for current customer
@@ -292,6 +295,7 @@ class ItemDetail(MethodResource):
                         item_variant['price'] = variant_price['price_list_rate']
                     except ERPItemPrice.DoesNotExist:
                         LOGGER.debug("No price list for Item <{0}>".format(item_variant['code']))
+                        raise BadRequest
             else:
                 # Fetch item qtty
                 pass
@@ -322,6 +326,7 @@ class ItemDetail(MethodResource):
                 item['price'] = variant_price['price_list_rate']
             except ERPItemPrice.DoesNotExist:
                 LOGGER.debug("No price list for Item <{0}>".format(item_variant['code']))
+                raise NotFound
 
         except ERPItem.DoesNotExist:
             raise NotFound
@@ -333,7 +338,12 @@ class ItemDetail(MethodResource):
 
         quantity = max(0, int(kwargs['quantity']))
 
-        product = Item(item['code'], item['name'], item['price'])
+        LOGGER.debug(item)
+
+        product = Item(code=item['code'],
+                       name=item['name'],
+                       warehouse=item['website_warehouse'],
+                       price=item['price'])
 
         try:
             product.check_quantity(quantity)

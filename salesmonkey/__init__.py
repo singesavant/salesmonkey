@@ -30,7 +30,7 @@ cache = ResourceCache()
 #                                   'CACHE_REDIS_HOST': app.config['FLASK_CACHE_REDIS_HOST']})
 
 
-Session(app)
+session = Session()
 
 cors = CORS(app, resources={r"/*": {"origins": "*"}},
             supports_credentials=True)
@@ -53,3 +53,4 @@ api_specs.init_app(app)
 api_v1.init_app(app)
 login_manager.init_app(app)
 cache.init_app(app)
+session.init_app(app)
