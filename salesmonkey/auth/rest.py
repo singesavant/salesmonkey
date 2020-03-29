@@ -99,7 +99,7 @@ class CustomerPostalAddress(MethodResource):
 
         except ERPAddress.DoesNotExist:
             # Create a new address object and link it
-            if not kwargs.has_key('address_line2'):
+            if 'address_line2' in kwargs:
                 data['address_line2'] = ''
 
             address = erp_client.query(ERPAddress).create(data=kwargs)
