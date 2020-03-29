@@ -1,6 +1,6 @@
 import math
 import random
-from datetime import date
+from datetime import date, datetime
 import requests
 from werkzeug.exceptions import NotFound, BadRequest
 
@@ -110,7 +110,7 @@ class SumUpClient:
         json_payload = {'amount': amount,
                         'currency': currency,
                         'pay_to_email': self.merchant_email,
-                        'checkout_reference': "{0}".format(reference),
+                        'checkout_reference': "{0}-{1}".format(reference, datetime.now().strftime("%Y%m%d%H%M%S")),
                         # 'return_url': 'http://singe-savant.com/return',
                         'description': description}
 
