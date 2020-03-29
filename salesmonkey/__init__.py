@@ -19,7 +19,7 @@ app.config.from_pyfile('settings.cfg')
 if app.config['DEBUG']:
     coloredlogs.install(level='DEBUG')
 else:
-    coloredlogs.install(level='WARN')
+    coloredlogs.install(level='INFO')
 
 ma = Marshmallow(app)
 
