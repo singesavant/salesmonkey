@@ -266,8 +266,8 @@ class AuthWith(MethodResource):
                                                               'language': user_info_json['locale'],
                                                               'gender': gender,
                                                               'image_field': user_info_json['picture'], # XXX Should be Attach
-                                                              'first_name': user_info_json['given_name'],
-                                                              'last_name': user_info_json['family_name'],
+                                                              'first_name': user_info_json.get('given_name', 'Singe'),
+                                                              'last_name': user_info_json.get('family_name', 'Inconnu'),
                                                               'send_welcome_email': False})
             LOGGER.debug("Created User <{0}> on ERP".format(erp_user['name']))
 
