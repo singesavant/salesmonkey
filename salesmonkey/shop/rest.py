@@ -5,7 +5,12 @@ from salesmonkey import app
 from salesmonkey import cache
 import satchless
 from datetime import date
-from werkzeug.exceptions import NotFound, BadRequest
+from werkzeug.exceptions import (
+    NotFound,
+    BadRequest,
+    Conflict,
+    Gone
+)
 
 from flask_apispec import (
     FlaskApiSpec,
@@ -182,6 +187,7 @@ class CartDetail(MethodResource):
                                                                                                current_user.last_name),
                                                         'shipping_rule': app.config['ERPNEXT_SHIPPING_RULE'],
                                                         'naming_series': "SO-WEB-.YY.MM.DD.-.###",
+                                                        'set_warehouse': 'Vente en Ligne - LSS',
                                                         'order_type': "Shopping Cart",
                                                         'items': items,
                                                         'taxes': []})
@@ -208,8 +214,8 @@ class CartDetail(MethodResource):
                                                       "rate": "20"
 	                                              },{
                                                       "charge_type": "Actual",
-                                                      "account_head": "Frais de Transport - LSS",
-                                                      "description": "Livraison",
+                                                      "account_head": "7085 - Ports et frais accessoires facturés - LSS",
+                                                      "description": "Livraison Centre Lille",
                                                       "rate": "0",
                                                       "tax_amount": shipping_cost
                                                   }]})
@@ -389,8 +395,10 @@ api_v1.register('/shop/orders/', UserSalesOrderList)
 
 @marshal_with(ERPSalesOrderSchema)
 class UserSalesOrderDetail(MethodResource):
+
     @login_required
-    def get(self, name):
+    @use_kwargs({'update_qttys': fields.Boolean(missing=False)})
+    def get(self, name, update_qttys):
         # FIXME duplicate code
         contact = erp_client.query(ERPContact).first(filters=[['Contact', 'user', '=', current_user.username]],
                                                      erp_fields=['name', 'first_name', 'last_name'])
@@ -410,6 +418,82 @@ class UserSalesOrderDetail(MethodResource):
                                                               fields='["name", "title", "grand_total", "customer", "items", "transaction_date"]',
                                                               filters=[["Sales Order", "Customer", "=", customer['name']],
                                                                        ["Sales Order", "status", "!=", "Cancelled"]])
+
+            if update_qttys:
+                LOGGER.debug("Checking stocks !")
+
+                need_updating = False
+
+                updated_items = []
+
+                for item in sales_order['items']:
+                    if item['projected_qty'] < item['quantity']:
+                        new_qtty = max(0, item['projected_qty'])
+                        need_updating = True
+                    else:
+                        new_qtty = item['quantity']
+
+                    if new_qtty > 0:
+                        updated_items.append({
+                            'item_code': item['item_code'],
+                            'qty': new_qtty
+                        })
+
+                if need_updating == True:
+                    # We delete our SO since nothing is available anymore
+                    if len(updated_items) == 0:
+                        erp_client.query(ERPSalesOrder).delete(name)
+                        # Empty Cart
+                        cart = Cart.from_session()
+                        cart.clear()
+                        raise Gone
+
+                    LOGGER.debug("Updating SO <{0}> since we are out of stock on some items".format(name))
+
+                    # Update SO
+                    response = erp_client.query(ERPSalesOrder).update(name, data={'items': updated_items})
+
+                    sales_order, errors = ERPSalesOrderSchema(strict=True).load(data=response.json()['data'])
+                    LOGGER.debug(sales_order)
+
+                    # FIXME HARDCODED!
+                    shipping_cost = 0
+                    if int(sales_order['amount_total']) < 50:
+                        shipping_cost = 5
+
+                    response = erp_client.update_resource("Sales Order",
+                                                          resource_name=sales_order['name'],
+                                                          data={'taxes': [{
+                                                              "charge_type": "On Net Total",
+		                                                      "account_head": "4457 - TVA collectée - LSS",
+		                                                      "description": "TVA 20%",
+                                                              "included_in_print_rate": "1",
+                                                              "rate": "20"
+	                                                      },{
+                                                              "charge_type": "Actual",
+                                                              "account_head": "7085 - Ports et frais accessoires facturés - LSS",
+                                                              "description": "Livraison Centre Lille",
+                                                              "rate": "0",
+                                                              "tax_amount": shipping_cost
+                                                          }]})
+
+                    sales_order, errors = ERPSalesOrderSchema(strict=True).load(data=response.json()['data'])
+
+                    # Update Cart based on new SO
+                    cart = Cart.from_session()
+                    cart.clear()
+
+                    for item in sales_order['items']:
+                        cart.add(Item(code=item['item_code'],
+                                      name=item['item_name'],
+                                      warehouse=item['warehouse'],
+                                      price=item['rate']),
+                                 quantity=item['quantity'],
+                                 check_quantity=False)
+
+                    raise Conflict
+
+
         except ERPSalesOrder.DoesNotExist:
             raise NotFound
 
