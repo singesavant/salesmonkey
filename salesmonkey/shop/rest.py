@@ -427,7 +427,8 @@ class UserSalesOrderDetail(MethodResource):
                 updated_items = []
 
                 for item in sales_order['items']:
-                    if item['projected_qty'] < item['quantity']:
+                    # XXX Hardcoded cateogry group!
+                    if (item['item_group'] != 'BrewLab') and (item['projected_qty'] < item['quantity']):
                         new_qtty = max(0, item['projected_qty'])
                         need_updating = True
                     else:

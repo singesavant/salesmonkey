@@ -77,8 +77,6 @@ class CustomerPostalAddress(MethodResource):
         customer = session.get('customer')
         contact = session.get('contact')
 
-        LOGGER.debug(customer)
-
         data = {
             'address_type': 'Shipping',
             'address_title': '{0}'.format(contact['name'])
