@@ -34,11 +34,6 @@ ma = Marshmallow(app)
 
 cache = ResourceCache()
 
-# config={'CACHE_TYPE': 'redis',
-#                                   'CACHE_REDIS_DB': app.config['FLASK_CACHE_REDIS_DB'],
-#                                   'CACHE_REDIS_HOST': app.config['FLASK_CACHE_REDIS_HOST']})
-
-
 session = Session()
 
 cors = CORS(app, resources={r"/*": {"origins": "*"}},
@@ -53,7 +48,8 @@ from . import (
     beers,
     shop,
     checkout,
-    brewshop
+    brewshop,
+    delivery
 )
 
 from .erpnext import erp_client
