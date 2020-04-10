@@ -33,11 +33,16 @@ class Item(satchless.item.StockedItem):
     def get_stock(self):
         item = erp_client.query(ERPItem).get(self.code)
 
-        bin = erp_client.query(ERPBin).first(erp_fields=["projected_qty"],
-                                             filters=[
-                                                 ["Bin", "item_code", "=", self.code],
-                                                 ["Bin", "warehouse", "=", self.warehouse]
-                                             ])
+        try:
+            bin = erp_client.query(ERPBin).first(erp_fields=["projected_qty"],
+                                                 filters=[
+                                                     ["Bin", "item_code", "=", self.code],
+                                                     ["Bin", "warehouse", "=", self.warehouse]
+                                                 ])
+        except ERPBin.DoesNotExist:
+            # No warehouse entry equals ZERO stock
+            return 0
+
         return max(bin['projected_qty'], 0)
 
 
