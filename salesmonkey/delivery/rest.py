@@ -39,7 +39,23 @@ class DeliveryStopWithContactSchema(ERPDeliveryStopSchema):
 class DeliveryTripWithContactSchema(ERPDeliveryTripSchema):
     stops = fields.Nested("DeliveryStopWithContactSchema", load_from="delivery_stops", many=True)
 
-class DeliveryTrip(MethodResource):
+
+@marshal_with(ERPDeliveryTripSchema(many=True))
+class DeliveryTripList(MethodResource):
+    """
+    List available Delivery Trip List
+    """
+    @cache.memoize(timeout=10)
+    def get(self):
+        try:
+            trip_list = erp_client.query(ERPDeliveryTrip).list(filters=[['Delivery Trip', 'status', '=', 'Scheduled']])
+        except ERPDeliveryTrip.DoesNotExist:
+            raise NotFound
+
+        return trip_list
+
+
+class DeliveryTripDetails(MethodResource):
     """
     Help Delivery by giving customer infos and gmap trip
     """
@@ -54,7 +70,7 @@ class DeliveryTrip(MethodResource):
 
 
     @marshal_with(DeliveryTripWithContactSchema)
-    @cache.memoize(timeout=1)
+    @cache.memoize(timeout=10)
     def get(self, name):
         try:
             trip = erp_client.query(ERPDeliveryTrip).get(name)
@@ -69,4 +85,6 @@ class DeliveryTrip(MethodResource):
         return trip
 
 
-api_v1.register('/delivery/trip/<name>', DeliveryTrip)
+api_v1.register('/delivery/trip/<name>', DeliveryTripDetails)
+api_v1.register('/delivery/trip/', DeliveryTripList)
+
