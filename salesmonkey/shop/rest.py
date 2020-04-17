@@ -304,7 +304,18 @@ class ItemDetail(MethodResource):
                         raise BadRequest
             else:
                 # Fetch item qtty
-                pass
+                try:
+                    bin = erp_client.query(ERPBin).first(erp_fields=["name", "projected_qty"],
+                                                         filters=[
+                                                             ["Bin", "item_code", "=", item['code']],
+                                                             ["Bin", "warehouse", "=", item['website_warehouse']]
+                                                         ])
+
+                    item['orderable_qty'] = max(bin['projected_qty'], 0)
+                except ERPBin.DoesNotExist:
+                    # If we have no Bin, it means, there was no stock movement there so it equals to zero stock
+                    item['orderable_qty'] = 0
+
 
         except ERPItem.DoesNotExist:
             raise NotFound
