@@ -2,6 +2,7 @@ import math
 import random
 from datetime import date, datetime
 import requests
+import stripe
 from werkzeug.exceptions import NotFound, BadRequest
 
 from flask_apispec import (
@@ -37,6 +38,7 @@ from ..schemas import (
 )
 
 from flask_login import current_user
+from flask import jsonify
 
 from salesmonkey import app
 
@@ -160,8 +162,91 @@ class SumUpClient:
             r.raise_for_status()
 
 
-class SalesOrderSumUpPayment(Step):
+class PaymentStep(Step):
+    GATEWAY_NAME = None
+    ACCOUNT_NAME = None
+    MODE_OF_PAYMENT = None
+
     def __str__(self): return 'payment'
+
+    def submit_sales_order(self):
+        return erp_client.query(ERPSalesOrder).update(name=self.sales_order['name'], data={'docstatus': 1})
+
+    def make_payment_entry(self, so_name, customer, amount, transaction_id):
+        return erp_client.create_resource("Payment Entry",
+                                          data={'docstatus': 1,
+                                                'title': "Paiement Web {0} {1}".format(current_user.first_name,
+                                                                                       current_user.last_name),
+                                                'company': 'Le Singe Savant',
+                                                'party_type': "Customer",
+                                                'party': customer['name'],
+                                                'payment_type': "Receive",
+                                                'mode_of_payment': self.MODE_OF_PAYMENT,
+                                                'naming_series': "PE-WEB-.YY.MM.DD.-.###",
+
+                                                'paid_amount': amount,
+
+                                                'paid_to': self.ACCOUNT_NAME,
+                                                'received_amount': amount,
+
+                                                'reference_no': "{0}/{1}".format(self.GATEWAY_NAME, transaction_id),
+                                                'reference_date': "{0}".format(date.today()),
+                                                'references': [{
+                                                    'reference_doctype': 'Sales Order',
+                                                    'reference_name': so_name,
+                                                    'allocated_amount': amount
+                                                }]
+                                          })
+
+    def clear_cart(self):
+        cart = Cart.from_session()
+        cart.clear()
+
+
+
+class SalesOrderStripePayment(PaymentStep):
+    GATEWAY_NAME = 'STRIPE'
+    ACCOUNT_NAME = '517002 - Stripe - LSS'
+    MODE_OF_PAYMENT = "Stripe"
+
+    def __init__(self, sales_order):
+        self.sales_order = sales_order
+
+    def create_checkout(self):
+        stripe_amount = int(float(self.sales_order['amount_total'])*100)
+        intent = stripe.PaymentIntent.create(
+            amount=stripe_amount,
+            currency='eur',
+            description=self.sales_order['name'],
+            metadata={'so_name': self.sales_order['name']}
+        )
+
+        return jsonify(client_secret=intent.client_secret,
+                       description="{0} - {1}".format(self.sales_order['title'],
+                                                      self.sales_order['name']),
+                       amount=self.sales_order['amount_total'],
+                       stripe_amount=stripe_amount,
+                       customer=self.sales_order['customer'])
+
+    def validate(self, checkout_id):
+        intent = stripe.PaymentIntent.retrieve(checkout_id)
+
+        customer = session.get('customer', None)
+        if customer is None:
+            raise InvalidData('Session Error')
+
+        if intent['status'] == "succeeded":
+            self.submit_sales_order()
+            self.make_payment_entry(self.sales_order['name'], customer, float(intent['amount'])/100.0, intent['id'])
+            self.clear_cart()
+        else:
+            raise InvalidData('Payment not accepted')
+
+
+class SalesOrderSumUpPayment(PaymentStep):
+    GATEWAY_NAME = 'SUMUP'
+    ACCOUNT_NAME = '517 - SumUp - LSS'
+    MODE_OF_PAYMENT = "Credit Card"
 
     def __init__(self, sales_order):
         self.sales_order = sales_order
@@ -169,7 +254,7 @@ class SalesOrderSumUpPayment(Step):
                                   app.config["SUMUP_CLIENT_SECRET"],
                                   app.config["SUMUP_MERCHANT_ID"])
 
-    def create_sumup_checkout(self):
+    def create_checkout(self):
         return self.client.create_checkout(amount=self.sales_order['amount_total'],
                                            reference="{0}".format(self.sales_order['name']),
                                            description="Website - {0} - {1}".format(self.sales_order['title'],
@@ -182,35 +267,9 @@ class SalesOrderSumUpPayment(Step):
             raise InvalidData('Session Error')
 
         if checkout['status'] == 'PAID':
-            erp_client.query(ERPSalesOrder).update(name=self.sales_order['name'], data={'docstatus': 1})
-
-            payment_entry  = erp_client.create_resource("Payment Entry",
-                                                        data={'docstatus': 1,
-                                                              'title': "Paiement Web {0} {1}".format(current_user.first_name,
-                                                                                                     current_user.last_name),
-                                                              'company': 'Le Singe Savant',
-                                                              'party_type': "Customer",
-                                                              'party': customer['name'],
-                                                              'payment_type': "Receive",
-                                                              'mode_of_payment': "Credit Card",
-                                                              'naming_series': "PE-WEB-.YY.MM.DD.-.###",
-
-                                                              'paid_amount': checkout['amount'],
-
-                                                              'paid_to': '517 - SumUp - LSS',
-                                                              'received_amount': checkout['amount'],
-
-                                                              'reference_no': "SUMUP/{0}".format(checkout['transaction_code']),
-                                                              'reference_date': "{0}".format(date.today()),
-                                                              'references': [{
-                                                                  'reference_doctype': 'Sales Order',
-                                                                  'reference_name': self.sales_order['name'],
-                                                                  'allocated_amount': checkout['amount']
-                                                              }]
-                                                        })
-
-            cart = Cart.from_session()
-            cart.clear()
+            self.submit_sales_order()
+            self.make_payment_entry()
+            self.clear_cart()
         else:
             raise InvalidData('Payment not accepted')
 
@@ -228,7 +287,8 @@ class SalesOrderCheckoutManager(ProcessManager):
         self.sales_order = sales_order
 
     def __iter__(self):
-        yield SalesOrderSumUpPayment(self.sales_order)
+        yield SalesOrderStripePayment(self.sales_order)
+        # yield SalesOrderSumUpPayment(self.sales_order)
 
 
 class SalesOrderPayment(MethodResource):
@@ -255,12 +315,12 @@ class SalesOrderPayment(MethodResource):
 
         payment_step = manager['payment']
 
-        sumup_info = payment_step.create_sumup_checkout()
+        payment_gateway_info = payment_step.create_checkout()
 
-        if sumup_info == None:
+        if payment_gateway_info == None:
             raise BadRequest
 
-        return sumup_info
+        return payment_gateway_info
 
     @login_required
     @use_kwargs({'checkout_id': fields.String(required=True)})

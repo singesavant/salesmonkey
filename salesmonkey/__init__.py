@@ -10,6 +10,8 @@ from .utils import ResourceCache
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 
+import stripe
+
 app = Flask("salesmonkey", instance_relative_config=True)
 
 CONFIG = {
@@ -24,6 +26,8 @@ if 'SENTRY_DSN' in app.config:
         dsn=app.config['SENTRY_DSN'],
         integrations=[FlaskIntegration()]
     )
+
+stripe.api_key = app.config['STRIPE_API_KEY']
 
 if app.config['DEBUG']:
     coloredlogs.install(level='DEBUG')
