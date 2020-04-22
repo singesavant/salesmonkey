@@ -146,11 +146,8 @@ class CartDetail(MethodResource):
 
         for idx, cart_line in enumerate(cart):
             if cart_line.product.code == item_code:
-                try:
-                    cart.add(cart_line.product, quantity=0, replace=True)
-                except ERPItem.DoesNotExist:
-                    pass
-
+                cart.add(cart_line.product, quantity=0, replace=True, check_quantity=False)
+                
                 return
 
 
