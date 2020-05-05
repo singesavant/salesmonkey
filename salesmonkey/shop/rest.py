@@ -62,6 +62,19 @@ import logging
 
 LOGGER = logging.getLogger(__name__)
 
+
+def calculate_shipping_cost(sales_order):
+    shipping_cost = 0
+    if sales_order['shipping_rule'] == 'Emport Brasserie':
+        return 0
+
+    if int(sales_order['amount_total']) < 50:
+        shipping_cost = 5
+
+    return shipping_cost
+
+
+
 class GiveAway(MethodResource):
     """
     Offer 5% to partner
@@ -199,11 +212,7 @@ class CartDetail(MethodResource):
             # XXX cart.clear()
             sales_order, errors = ERPSalesOrderSchema(strict=True).load(data=response.json()['data'])
 
-            # FIXME HARDCODED!
-            shipping_cost = 0
-            if int(sales_order['amount_total']) < 50:
-                shipping_cost = 5
-
+            shipping_cost = calculate_shipping_cost(sales_order)
 
             response = erp_client.update_resource("Sales Order",
                                                   resource_name=sales_order['name'],
@@ -216,7 +225,7 @@ class CartDetail(MethodResource):
 	                                              },{
                                                       "charge_type": "Actual",
                                                       "account_head": "7085 - Ports et frais accessoires facturés - LSS",
-                                                      "description": "Livraison Centre Lille",
+                                                      "description": "Livraison",
                                                       "rate": "0",
                                                       "tax_amount": shipping_cost
                                                   }]})
@@ -470,9 +479,7 @@ class UserSalesOrderDetail(MethodResource):
                     LOGGER.debug(sales_order)
 
                     # FIXME HARDCODED!
-                    shipping_cost = 0
-                    if int(sales_order['amount_total']) < 50:
-                        shipping_cost = 5
+                    shipping_cost = calculate_shipping_cost(sales_order)
 
                     response = erp_client.update_resource("Sales Order",
                                                           resource_name=sales_order['name'],
@@ -485,7 +492,7 @@ class UserSalesOrderDetail(MethodResource):
 	                                                      },{
                                                               "charge_type": "Actual",
                                                               "account_head": "7085 - Ports et frais accessoires facturés - LSS",
-                                                              "description": "Livraison Centre Lille",
+                                                              "description": "Livraison",
                                                               "rate": "0",
                                                               "tax_amount": shipping_cost
                                                           }]})
@@ -543,14 +550,65 @@ class UserSalesOrderShippingMethod(MethodResource):
         except ERPSalesOrder.DoesNotExist:
             raise NotFound
 
+        if sales_order['customer'] != customer['name']:
+            raise NotFound
+
         return sales_order
 
     @login_required
-    def post(self, name):
+    @use_kwargs({'shipping_method': fields.String(required=True)})
+    def post(self, name, shipping_method):
         """
         Set the shipping method
         """
-        pass
+        customer = session.get('customer', None)
+        if not customer:
+            raise NotFound
+
+        if shipping_method not in ('drive', 'shipping'):
+            raise NotAllowed
+
+        try:
+            sales_order = erp_client.query(ERPSalesOrder).get(name)
+        except ERPSalesOrder.DoesNotExist:
+            raise NotFound
+
+        if sales_order['status'] != 'Draft':
+            raise NotAllowed
+
+        try:
+            erp_shipping_rule = {
+                'drive': 'Emport Brasserie',
+                'shipping': 'Livraison Centre Lille'
+            }[shipping_method]
+        except KeyError:
+            raise NotAllowed
+
+        sales_order['shipping_rule'] = erp_shipping_rule
+        shipping_cost = calculate_shipping_cost(sales_order)
+
+        taxes = [{
+            "charge_type": "On Net Total",
+		    "account_head": "4457 - TVA collectée - LSS",
+		    "description": "TVA 20%",
+            "included_in_print_rate": "1",
+            "rate": "20"
+        },
+        {
+            "charge_type": "Actual",
+            "account_head": "7085 - Ports et frais accessoires facturés - LSS",
+            "description": "Livraison",
+            "rate": "0",
+            "tax_amount": shipping_cost
+        }]
+
+        erp_client.query(ERPSalesOrder).update(name,
+                                               {'shipping_rule': erp_shipping_rule,
+                                                'taxes': taxes}
+                                               )
+
+        return erp_client.query(ERPSalesOrder).get(name)
+
 
 api_v1.register('/shop/orders/<name>/shipping', UserSalesOrderShippingMethod)
 

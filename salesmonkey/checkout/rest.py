@@ -343,5 +343,5 @@ class SalesOrderPayment(MethodResource):
 
 
 
+# API Endpoint registrations
 api_v1.register('/shop/orders/<name>/payment', SalesOrderPayment)
-
