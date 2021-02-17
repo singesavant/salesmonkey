@@ -1,26 +1,16 @@
 import logging
 
-from werkzeug.exceptions import (
-    NotFound
-)
+from werkzeug.exceptions import NotFound
 
-from flask_apispec import (
-    marshal_with,
-    MethodResource,
-    use_kwargs
-)
+from flask_apispec import marshal_with, MethodResource, use_kwargs
 
-from erpnext_client.documents import (
-    ERPDeliveryTrip,
-    ERPContact,
-    ERPAddress
-)
+from erpnext_client.documents import ERPDeliveryTrip, ERPContact, ERPAddress
 
 from erpnext_client.schemas import (
     ERPDeliveryTripSchema,
     ERPDeliveryStopSchema,
     ERPContactSchema,
-    ERPAddressSchema
+    ERPAddressSchema,
 )
 
 from webargs import fields
@@ -32,12 +22,16 @@ from ..erpnext import erp_client
 
 LOGGER = logging.getLogger(__name__)
 
+
 class DeliveryStopWithContactSchema(ERPDeliveryStopSchema):
     contact = fields.Nested("ERPContactSchema")
     address = fields.Nested("ERPAddressSchema")
 
+
 class DeliveryTripWithContactSchema(ERPDeliveryTripSchema):
-    stops = fields.Nested("DeliveryStopWithContactSchema", load_from="delivery_stops", many=True)
+    stops = fields.Nested(
+        "DeliveryStopWithContactSchema", load_from="delivery_stops", many=True
+    )
 
 
 @marshal_with(ERPDeliveryTripSchema(many=True))
@@ -45,10 +39,13 @@ class DeliveryTripList(MethodResource):
     """
     List available Delivery Trip List
     """
+
     @cache.memoize(timeout=10)
     def get(self):
         try:
-            trip_list = erp_client.query(ERPDeliveryTrip).list(filters=[['Delivery Trip', 'status', '=', 'Scheduled']])
+            trip_list = erp_client.query(ERPDeliveryTrip).list(
+                filters=[["Delivery Trip", "status", "=", "Scheduled"]]
+            )
         except ERPDeliveryTrip.DoesNotExist:
             raise NotFound
 
@@ -68,7 +65,6 @@ class DeliveryTripDetails(MethodResource):
     def _get_address_info(self, address_name):
         return erp_client.query(ERPAddress).get(address_name)
 
-
     @marshal_with(DeliveryTripWithContactSchema)
     @cache.memoize(timeout=10)
     def get(self, name):
@@ -77,14 +73,13 @@ class DeliveryTripDetails(MethodResource):
         except ERPDeliveryTrip.DoesNotExist:
             raise NotFound
 
-        for stop in trip['stops']:
-            full_contact = self._get_contact_info(stop['contact'])
-            stop['address'] = self._get_address_info(stop['address'])
-            stop['contact'] = full_contact
+        for stop in trip["stops"]:
+            full_contact = self._get_contact_info(stop["contact"])
+            stop["address"] = self._get_address_info(stop["address"])
+            stop["contact"] = full_contact
 
         return trip
 
 
-api_v1.register('/delivery/trip/<name>', DeliveryTripDetails)
-api_v1.register('/delivery/trip/', DeliveryTripList)
-
+api_v1.register("/delivery/trip/<name>", DeliveryTripDetails)
+api_v1.register("/delivery/trip/", DeliveryTripList)

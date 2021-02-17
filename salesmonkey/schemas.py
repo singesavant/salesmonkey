@@ -3,10 +3,7 @@ from flask import session
 import satchless.item
 import satchless.cart
 
-from erpnext_client.documents import (
-    ERPItem,
-    ERPBin
-)
+from erpnext_client.documents import ERPItem, ERPBin
 
 from salesmonkey import ma
 
@@ -34,16 +31,18 @@ class Item(satchless.item.StockedItem):
         item = erp_client.query(ERPItem).get(self.code)
 
         try:
-            bin = erp_client.query(ERPBin).first(erp_fields=["projected_qty"],
-                                                 filters=[
-                                                     ["Bin", "item_code", "=", self.code],
-                                                     ["Bin", "warehouse", "=", self.warehouse]
-                                                 ])
+            bin = erp_client.query(ERPBin).first(
+                erp_fields=["projected_qty"],
+                filters=[
+                    ["Bin", "item_code", "=", self.code],
+                    ["Bin", "warehouse", "=", self.warehouse],
+                ],
+            )
         except ERPBin.DoesNotExist:
             # No warehouse entry equals ZERO stock
             return 0
 
-        return max(bin['projected_qty'], 0)
+        return max(bin["projected_qty"], 0)
 
 
 class ItemSchema(ma.Schema):
@@ -69,11 +68,11 @@ class CartLineSchema(ma.Schema):
 class Cart(satchless.cart.Cart):
     @staticmethod
     def from_session():
-        cart = session.get('cart', None)
+        cart = session.get("cart", None)
         if cart is None:
-            session['cart'] = Cart()
+            session["cart"] = Cart()
 
-        return session.get('cart')
+        return session.get("cart")
 
     @property
     def items(self):
@@ -81,9 +80,8 @@ class Cart(satchless.cart.Cart):
 
 
 class CartSchema(ma.Schema):
-    items = ma.Nested(CartLineSchema,
-                      many=True)
-    grand_total = ma.Method('get_grand_total', deserialize='load_grand_total')
+    items = ma.Nested(CartLineSchema, many=True)
+    grand_total = ma.Method("get_grand_total", deserialize="load_grand_total")
 
     def get_grand_total(self, obj):
         return obj.get_total()

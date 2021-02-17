@@ -13,12 +13,22 @@ import hashlib
 
 class OrderNumberGenerator:
     def generate(self, aCart):
-        monkey_species = ['BABOON', 'MONKEY', 'APE', 'GORILLA', 'CAPUCHIN', 'TAMARIN', 'GIBBON']
+        monkey_species = [
+            "BABOON",
+            "MONKEY",
+            "APE",
+            "GORILLA",
+            "CAPUCHIN",
+            "TAMARIN",
+            "GIBBON",
+        ]
         specie = random.choice(monkey_species)
 
-        num = 'WEB{0}-{1}-{2}'.format(specie,
-                                      datetime.strftime(datetime.now(), '%Y%m%d'),
-                                      str(abs(42+hash(datetime.now())))[:4])
+        num = "WEB{0}-{1}-{2}".format(
+            specie,
+            datetime.strftime(datetime.now(), "%Y%m%d"),
+            str(abs(42 + hash(datetime.now())))[:4],
+        )
         return num
 
 
@@ -26,6 +36,7 @@ class ResourceCache(Cache):
     """
     A customized version of Cache that works with FlaskApiSpec Resources (removes self arg)
     """
+
     def _memoize_make_cache_key(
         self,
         make_name=None,
@@ -38,7 +49,10 @@ class ResourceCache(Cache):
         def make_cache_key(f, *args, **kwargs):
             _timeout = getattr(timeout, "cache_timeout", timeout)
             fname, version_data = self._memoize_version(
-                f, args=self._extract_self_arg(f, args), timeout=_timeout, forced_update=forced_update
+                f,
+                args=self._extract_self_arg(f, args),
+                timeout=_timeout,
+                forced_update=forced_update,
             )
 
             #: this should have to be after version_data, so that it
@@ -46,13 +60,13 @@ class ResourceCache(Cache):
             altfname = make_name(fname) if callable(make_name) else f
 
             if callable(f):
-                keyargs, keykwargs = self._memoize_kwargs_to_args(
-                    f, *args, **kwargs
-                )
+                keyargs, keykwargs = self._memoize_kwargs_to_args(f, *args, **kwargs)
             else:
                 keyargs, keykwargs = args, kwargs
 
-            updated = u"{0}{1}{2}".format(altfname, self._extract_self_arg(f, keyargs), keykwargs)
+            updated = u"{0}{1}{2}".format(
+                altfname, self._extract_self_arg(f, keyargs), keykwargs
+            )
 
             cache_key = hash_method()
             cache_key.update(updated.encode("utf-8"))
@@ -68,8 +82,8 @@ class ResourceCache(Cache):
     def _extract_self_arg(f, args):
         argspec_args = inspect.getargspec(f).args
 
-        if argspec_args and argspec_args[0] in ('self', 'cls'):
-            if hasattr(args[0], '__name__'):
+        if argspec_args and argspec_args[0] in ("self", "cls"):
+            if hasattr(args[0], "__name__"):
                 return (args[0].__name__,) + args[1:]
             return (args[0].__class__.__name__,) + args[1:]
         return args

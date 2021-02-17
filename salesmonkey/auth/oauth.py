@@ -3,64 +3,62 @@ from flask_oauthlib.client import OAuth
 
 
 from salesmonkey import app
-app.secret_key = 'development'
+
+app.secret_key = "development"
 oauth = OAuth(app)
 
 
 providers = {
-    'google': oauth.remote_app(
-        'google',
-        consumer_key=app.config.get('OAUTH_GOOGLE_ID'),
-        consumer_secret=app.config.get('OAUTH_GOOGLE_SECRET'),
-        request_token_params={
-            'scope': 'email'
-        },
-        base_url='https://www.googleapis.com/oauth2/v1/',
+    "google": oauth.remote_app(
+        "google",
+        consumer_key=app.config.get("OAUTH_GOOGLE_ID"),
+        consumer_secret=app.config.get("OAUTH_GOOGLE_SECRET"),
+        request_token_params={"scope": "email"},
+        base_url="https://www.googleapis.com/oauth2/v1/",
         request_token_url=None,
-        access_token_method='POST',
-        access_token_url='https://accounts.google.com/o/oauth2/token',
-        authorize_url='https://accounts.google.com/o/oauth2/auth',
+        access_token_method="POST",
+        access_token_url="https://accounts.google.com/o/oauth2/token",
+        authorize_url="https://accounts.google.com/o/oauth2/auth",
     )
 }
 
 
-@app.route('/')
+@app.route("/")
 def index():
-    if 'google_token' in session:
-        me = google.get('userinfo')
+    if "google_token" in session:
+        me = google.get("userinfo")
         return jsonify({"data": me.data})
-    return redirect(url_for('login'))
+    return redirect(url_for("login"))
 
 
-@app.route('/login')
+@app.route("/login")
 def login():
-    return google.authorize(callback=url_for('authorized', _external=True))
+    return google.authorize(callback=url_for("authorized", _external=True))
 
 
-@app.route('/logout')
+@app.route("/logout")
 def logout():
-    session.pop('google_token', None)
-    return redirect(url_for('index'))
+    session.pop("google_token", None)
+    return redirect(url_for("index"))
 
 
-
-@app.route('/login/authorized')
+@app.route("/login/authorized")
 def authorized():
     resp = google.authorized_response()
     if resp is None:
-        return 'Access denied: reason=%s error=%s' % (
-            request.args['error_reason'],
-            request.args['error_description']
+        return "Access denied: reason=%s error=%s" % (
+            request.args["error_reason"],
+            request.args["error_description"],
         )
-    session['google_token'] = (resp['access_token'], '')
-    me = google.get('userinfo')
+    session["google_token"] = (resp["access_token"], "")
+    me = google.get("userinfo")
     return jsonify({"data": me.data})
 
 
 @google.tokengetter
 def get_google_oauth_token():
-    return session.get('google_token')
+    return session.get("google_token")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run()

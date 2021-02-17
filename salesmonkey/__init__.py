@@ -14,25 +14,20 @@ import stripe
 
 app = Flask("salesmonkey", instance_relative_config=True)
 
-CONFIG = {
-    'SESSION_TYPE': 'redis'
-}
+CONFIG = {"SESSION_TYPE": "redis"}
 
 app.config.update(CONFIG)
-app.config.from_pyfile('settings.cfg')
+app.config.from_pyfile("settings.cfg")
 
-if 'SENTRY_DSN' in app.config:
-    sentry_sdk.init(
-        dsn=app.config['SENTRY_DSN'],
-        integrations=[FlaskIntegration()]
-    )
+if "SENTRY_DSN" in app.config:
+    sentry_sdk.init(dsn=app.config["SENTRY_DSN"], integrations=[FlaskIntegration()])
 
-stripe.api_key = app.config['STRIPE_API_KEY']
+stripe.api_key = app.config["STRIPE_API_KEY"]
 
-if app.config['DEBUG']:
-    coloredlogs.install(level='DEBUG')
+if app.config["DEBUG"]:
+    coloredlogs.install(level="DEBUG")
 else:
-    coloredlogs.install(level='INFO')
+    coloredlogs.install(level="INFO")
 
 ma = Marshmallow(app)
 
@@ -40,21 +35,13 @@ cache = ResourceCache()
 
 session = Session()
 
-cors = CORS(app, resources={r"/*": {"origins": "*"}},
-            supports_credentials=True)
+cors = CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 from .rest import api_v1, specs as api_specs
 
 from .auth.manager import login_manager
 
-from . import (
-    auth,
-    beers,
-    shop,
-    checkout,
-    brewshop,
-    delivery
-)
+from . import auth, beers, shop, checkout, brewshop, delivery
 
 from .erpnext import erp_client
 

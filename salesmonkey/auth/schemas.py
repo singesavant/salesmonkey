@@ -1,5 +1,6 @@
 from salesmonkey import ma
 
+
 class UserSchema(ma.Schema):
     username = ma.String(load_from="user")
     email = ma.Email(load_from="email")
