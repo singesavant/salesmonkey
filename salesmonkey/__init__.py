@@ -41,7 +41,16 @@ from .rest import api_v1, specs as api_specs
 
 from .auth.manager import login_manager
 
-from . import auth, beers, shop, checkout, brewshop, delivery
+from . import (
+    auth,
+    beers,
+    brewshop,
+    contact,
+    checkout,
+    dealers,
+    delivery,
+    shop,
+)
 
 from .erpnext import erp_client
 
