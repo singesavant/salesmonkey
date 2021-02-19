@@ -52,13 +52,13 @@ class DealerList(MethodResource):
     List dealers
     """
 
-    @cache.memoize(timeout=1)
+    @cache.memoize(timeout=30)
     def _get_customer(self, name):
         return erp_client.query(ERPCustomer).get(name=name)
 
-    @cache.memoize(timeout=1)
+    @cache.memoize(timeout=60 * 60 * 12)
     def get(self):
-        three_months_ago = date.today() - timedelta(days=10)
+        three_months_ago = date.today() - timedelta(days=90)
         dealer_list = {}
         try:
             delivery_list = erp_client.query(ERPDeliveryNote).list(
