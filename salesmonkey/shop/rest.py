@@ -1,50 +1,29 @@
+import logging
 import math
-import requests
-from random import randint
-from salesmonkey import app
-from salesmonkey import cache
-import satchless
 from datetime import date
-from werkzeug.exceptions import NotFound, BadRequest, Conflict, Gone
+from random import randint
 
-from flask_apispec import FlaskApiSpec, marshal_with, MethodResource, use_kwargs
-
-from flask_login import login_required
-
+import requests
+import satchless
+from erpnext_client.documents import (ERPBin, ERPContact, ERPCustomer,
+                                      ERPDynamicLink, ERPItem, ERPItemPrice,
+                                      ERPJournalEntry, ERPSalesOrder, ERPUser)
+from erpnext_client.schemas import (ERPCustomerSchema, ERPItemSchema,
+                                    ERPSalesOrderItemSchema,
+                                    ERPSalesOrderSchema)
 from flask import session
-
+from flask_apispec import (FlaskApiSpec, MethodResource, marshal_with,
+                           use_kwargs)
+from flask_login import current_user, login_required
+from salesmonkey import app, cache
 from webargs import fields
 from webargs.flaskparser import use_args
-
-from erpnext_client.schemas import (
-    ERPItemSchema,
-    ERPSalesOrderSchema,
-    ERPSalesOrderItemSchema,
-    ERPCustomerSchema,
-)
-
-from erpnext_client.documents import (
-    ERPItem,
-    ERPItemPrice,
-    ERPSalesOrder,
-    ERPUser,
-    ERPBin,
-    ERPCustomer,
-    ERPContact,
-    ERPDynamicLink,
-    ERPJournalEntry,
-)
-
-from ..schemas import CartSchema, CartLineSchema, Cart, Item
-
-from flask_login import current_user
+from werkzeug.exceptions import BadRequest, Conflict, Gone, NotFound
 
 from ..erpnext import erp_client
-
 from ..rest import api_v1
+from ..schemas import Cart, CartLineSchema, CartSchema, Item
 from ..utils import OrderNumberGenerator
-
-import logging
 
 LOGGER = logging.getLogger(__name__)
 
@@ -118,13 +97,13 @@ class GiveAway(MethodResource):
                 "user_remark": sales_order["customer"],
                 "accounts": [
                     {
-                        "account": "411 - Clients - LSS",
-                        "party_type": "Customer",
-                        "party": partner_name,
+                        "account": "709700 - Rabais remises et ristournes sur ventes de marchandises - LSS",
                         "debit_in_account_currency": five_pc,
                     },
                     {
-                        "account": "709700 - Rabais remises et ristournes sur ventes de marchandises - LSS",
+                        "account": "411 - Clients - LSS",
+                        "party_type": "Customer",
+                        "party": partner_name,
                         "credit_in_account_currency": five_pc,
                     },
                 ],
