@@ -31,14 +31,15 @@ class BeerList(MethodResource):
             erp_fields=[
                 "name",
                 "description",
-                "disabled",
+                "published",
                 "item_code",
                 "website_image",
                 "thumbnail",
+                "web_item_name",
             ],
             filters=[
-                ["Item", "show_in_website", "=", "1"],
-                ["Item", "is_sales_item", "=", True],
+                ["Website Item", "published", "=", "1"],
+#                ["Item", "is_sales_item", "=", True],
                 ["Website Item Group", "item_group", "=", item_group],
             ],
         )

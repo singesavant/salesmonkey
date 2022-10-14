@@ -73,9 +73,7 @@ class DealerList(MethodResource):
                         "Delivery Note",
                         "customer_group",
                         "in",
-                        "Cave et Épicerie",
-                        "Bar",
-                        "Restaurant",
+                        "Bar, Cave et Épicerie, Restaurant",
                     ],
                     [
                         "Delivery Note",

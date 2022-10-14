@@ -45,7 +45,7 @@ from . import (
     auth,
     beers,
     brewshop,
-    contact,
+    # contact,
     checkout,
     dealers,
     delivery,
